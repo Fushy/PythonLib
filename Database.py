@@ -15,6 +15,7 @@ from Colors import printc
 from Files import run_cmd
 from Strings import quote
 from Times import now
+from Util import is_iter_but_not_str
 
 
 def update_instance_model(instance, dict):
@@ -48,12 +49,16 @@ def print_create_model_class_code(fields):
     print(class_definition)
 
 
-def query_to_df(query) -> "DataFrame":
-    try:
-        return DataFrame(query.dicts())
-    except AttributeError:
-        print("query is None")
-        return DataFrame()
+def query_to_df(query) -> DataFrame:
+    return DataFrame(query.dicts())
+    # try:
+    #     return DataFrame(query.dicts())
+    #     # result_list = [{k: v for (k, v) in row.__dict__.items()} for row in boss_query]
+    #     # result_list = [{k: v for (k, v) in {**d['__data__'], **d}.items() if "__" not in k and k != "_dirty"} for d in
+    #     #                result_list]
+    # except AttributeError:
+    #     print("query is None")
+    #     return DataFrame()
 
 
 # TODO with peewee
@@ -249,20 +254,22 @@ def fill_rows(model: Type[Model], columns_order: list[str], values: list[list[ob
     db_columns = get_columns_name_model(model)
     indexes_to_ignore = [columns_order.index(index) for index in set(columns_order) - set(db_columns)]
     columns_order = [column for column in columns_order if column in db_columns]
-    rows = [dict(zip(columns_order,
-                     [value[i] for i in range(len(value)) if i not in indexes_to_ignore])) for value in values]
+    rows = [dict(zip(columns_order, [value[i] for i in range(len(value)) if i not in indexes_to_ignore])) for value in values]
     try:
         if update_key:
             for record in rows:
-                model.update(**record).where(getattr(model, update_key) == record[update_key]).execute()
+                update_conditions = [getattr(model, key) == record[key] for key in
+                                     (update_key if is_iter_but_not_str(update_key) else [update_key])]
+                final_condition = update_conditions[0]
+                for condition in update_conditions[1:]:
+                    final_condition &= condition
+                model.update(**record).where(final_condition).execute()
         else:
             model.insert_many(rows).execute()
     except Exception as e:  # todo peewee.OperationalError: database is locked
         print("database may be locked", traceback.format_exc(), "sleep(1) & retry function")
         # if "order_id" in rows[0]:
         #     rows[0]["order_id"] += 0.1
-        DB = PostgresqlDatabase("Trading", user="postgres", password="ale")
-        DB.connect()
         sleep(1)
         return fill_rows(model, columns_order, list(rows[0].values()), debug, raise_if_exist)
     #     if raise_if_exist:
@@ -271,7 +278,7 @@ def fill_rows(model: Type[Model], columns_order: list[str], values: list[list[ob
     #     else:
     #         return
     if debug:
-        printc("{} {}".format(now(), q.sql()), color="black")
+        printc("{} rows filled {}".format(now(), values), color="black")
 
 
 def type_to_field(val: object):
@@ -328,12 +335,6 @@ def get_dict_fields_name_n_value(model) -> dict:
 def get_dataframe(model):
     return pd.DataFrame(list(model.select().dicts()))
 
-
-def query_to_df(query):
-    return pd.DataFrame(query.dicts())
-    # result_list = [{k: v for (k, v) in row.__dict__.items()} for row in boss_query]
-    # result_list = [{k: v for (k, v) in {**d['__data__'], **d}.items() if "__" not in k and k != "_dirty"} for d in
-    #                result_list]
 
 
 # def extend_on_join():

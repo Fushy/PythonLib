@@ -13,21 +13,23 @@ delete("locked")
 
 
 def run(fun: Callable, arguments: dict = {}, wait_a_bit: float = 0.0, alert_if_error=True, print_if_error=True, name=None,
-        daemon=False) -> threading:
+        daemon=False, ignore_error=False) -> threading:
     """
     run(playback.play, arguments={"audio_segment": sound})
     """
 
     def aux():
-        # noinspection PyBroadException
-        try:
+        if ignore_error:
+            try:
+                fun(**arguments)
+            except Exception:
+                if print_if_error:
+                    print(traceback.format_exc(), file=sys.stderr)
+                    print(name or fun.__name__, file=sys.stderr)
+                # if alert_if_error:
+                #     Alert.alert(str(name or fun.__name__) + "\n\n" + traceback.format_exc(), level=3)
+        else:
             fun(**arguments)
-        except Exception:
-            if print_if_error:
-                print(traceback.format_exc(), file=sys.stderr)
-                print(name or fun.__name__, file=sys.stderr)
-            # if alert_if_error:
-            #     Alert.alert(str(name or fun.__name__) + "\n\n" + traceback.format_exc(), level=3)
 
     thread = Thread(target=aux, daemon=daemon)
     if name:

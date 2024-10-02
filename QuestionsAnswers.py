@@ -89,10 +89,6 @@ class QuestionsAnswers:
         self.questions_answers = reverse_dict(self.questions_answers)
         self.delete_line_return()
 
-    def add_reverse_to_the_pool(self):
-        self.questions_answers.update(reverse_dict(self.questions_answers))
-        self.delete_line_return()
-
     def training(self, one_to_validate: bool = False, keys_to_pickup: Optional[int] = None, contain_to_validate=False,
                  ordered=False, normal_and_reverse=False):
         """ Train for the Q/A
@@ -108,7 +104,8 @@ class QuestionsAnswers:
                                         min(len(self.questions_answers), keys_to_pickup))
             self.questions_answers = {k: self.questions_answers[k] for k in pickup_keys}
         if normal_and_reverse:
-            self.add_reverse_to_the_pool()
+            self.questions_answers.update(reverse_dict(self.questions_answers))
+            self.delete_line_return()
         # Questions are sorted to obtain the same color for a same given questions_answers dict
         sorted_questions = sorted(self.questions_answers)
         questions_answers_training = copy.deepcopy(self.questions_answers)
@@ -457,7 +454,7 @@ def lyrics_to_questions_answers(lyrics: str, next_line=False, next_part=False, d
     return QuestionsAnswers(qa_dict)
 
 
-###### script file start LIB #####
+##### START LIB #####
 
 
 T = TypeVar("T")
@@ -550,7 +547,7 @@ def json_base_to_json_ok(dictionaries: json_base | dict,
     return result
 
 
-###### script file end LIB #####
+##### END LIB #####
 
 
 song_lyrics = """
@@ -701,11 +698,6 @@ def dataframe_to_questions_answers(dataframe: DataFrame, column_name_questions, 
 def excel_to_questions_answers(file_name: str, column_name_questions, column_name_answers) -> QuestionsAnswers:
     dataframe = from_excel_to_dataframe(file_name)
     return dataframe_to_questions_answers(dataframe, column_name_questions, column_name_answers)
-
-
-# def dataframe_to_questions_answers(dataframe: DataFrame, column_name_questions, column_name_answers) -> QuestionsAnswers:
-#     from_excel_to_dataframe("dataframe_to_questions_answers")
-#     return
 
 
 if __name__ == '__main__':

@@ -20,6 +20,10 @@ from cryptography.fernet import Fernet
 from Files import run_cmd
 from Times import now
 
+# set Util as a library on Pycharm : Interpreter Paths
+#     File -> Settings... -> Project -> Python Interpreter -> Python Interpreter list: or Gear symbol -> Scroll down until Show all ->
+#     Tree folder icon -> + select the Util folder -> done
+
 # # https://developer.microsoft.com/fr-fr/microsoft-edge/tools/webdriver/
 # # https://stackoverflow.com/questions/14684968/how-to-export-virtualenv
 # # pip install --upgrade pip
