@@ -67,6 +67,9 @@ COMMON_CHARS = (string.ascii_lowercase
 # ♛♕♘♞♖♜♝♗
 
 
+def get_obj_file():
+    run_cmd("conda env export > packages.yml")
+
 def export_conda_env():
     run_cmd("conda env export > packages.yml")
 
