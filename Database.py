@@ -48,7 +48,6 @@ def print_create_model_class_code(fields):
         class_definition += f'    {str(field_name).replace(" ", "_").lower()} = {peewee_field}()\n'
     print(class_definition)
 
-
 def query_to_df(query) -> DataFrame:
     return DataFrame(query.dicts())
     # try:
