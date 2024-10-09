@@ -1,30 +1,27 @@
-from collections import defaultdict, OrderedDict
+import argparse
 import copy
-from datetime import datetime
-import itertools
 import json
+import json as json_api
 import random
 import re
 import socket
+from collections import defaultdict, OrderedDict
+from datetime import datetime
 from time import sleep
-from typing import Callable, Optional, TypeVar, Iterable
-import json as json_api
-import argparse
+from typing import Callable, Iterable, Optional, TypeVar
 
-from _pytest.capture import CaptureResult
-from bs4 import BeautifulSoup
-from colorama import Back, Fore, Style, init
 import pytest
 import requests
+from _pytest.capture import CaptureResult
+from bs4 import BeautifulSoup
+from colorama import Back, Fore, init, Style
 from pandas import DataFrame
 from requests.exceptions import ChunkedEncodingError, SSLError
 from requests_html import HTMLSession
-from ruamel_yaml.compat import ordereddict
-from urllib3.exceptions import NewConnectionError, MaxRetryError
+from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 from dataframe import from_excel_to_dataframe
 from Util import reverse_dict
-from collections import OrderedDict
 
 # colors = ["WHITE", "BLACK", "RED", "GREEN", "YELLOW", "BLUE", "MAGENTA", "CYAN"]
 colors = ["WHITE", "RED", "GREEN", "YELLOW", "BLUE", "MAGENTA", "CYAN"]
@@ -63,16 +60,16 @@ class QuestionsAnswers:
                 The response has to be exactly an answer into the answer list corresponding to the question
             If contain_to_validate
                 The response has to be a subset from an answer into the answer list corresponding to the question
-                Min 3 letters are accepted if the response has more or equal than 3 letters """
+                Min 4 letters are accepted if the response has more or equal than 3 letters """
         answers = self.questions_answers[question]
         try:
             if contain_to_validate:
                 # Can throw StopIteration blocks
-                if len(response) <= 3 <= len(question):
+                if len(response) <= 4:
                     # index = next(index for (index, answer) in enumerate(answers) if response.lower() == answer.lower())
                     return False
                 else:
-                    index = next(index for (index, answer) in enumerate(answers) if response.lower() == answer.lower())
+                    index = next(index for (index, answer) in enumerate(answers) if response.lower() in answer.lower())
             else:
                 # Can throw ValueError
                 index = list(map(lambda x: x.lower(), answers)).index(response.lower())
@@ -218,7 +215,7 @@ class TestQuestionsAnswers:
         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
         qa = QuestionsAnswers(test_questions_answers)
         mocker.patch('random.choice', return_value="Question 1")
-        assert qa._question() == "Question 1"
+        assert qa.question() == "Question 1"
 
     def test_answer_with_contain_to_validate_false_is_true(self):
         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
@@ -293,18 +290,18 @@ class TestQuestionsAnswers:
         assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"]}
         captured = capsys.readouterr()
         assert captured.out == """Question 1 |2|
-Question 1
-Answer 1
-Answer 2
-Answer 1 |1|
-Answer 1
-Question 1
-Answer 2
-Question 1
 Question 1 |2|
-Question 1
-Answer 1
-Answer 2
+\tAnswer 1
+\tAnswer 2
+Answer 1 |1|
+Answer 1 |1|
+\tQuestion 1
+Answer 2 |1|
+\tQuestion 1
+Question 1 |2|
+Question 1 |2|
+\tAnswer 1
+\tAnswer 2
 End training
 """
 
@@ -339,14 +336,13 @@ End training
                                                                        "Question 2": ["Answer 3", "Answer 4"]}
         captured = capsys.readouterr()
         assert captured.out == """Question 1 |2|
-ok
-ok
+\tok
+\tok
 Question 2 |2|
-ok
-ok
+\tok
+\tok
 Question 1 |2|
-End training
-"""
+End training\n"""
 
     def test_training_with_uncorrect_answers(self, mocker, capsys):
         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
@@ -358,7 +354,7 @@ End training
                                                                        "Question 2": ["Answer 3", "Answer 4"]}
         captured = capsys.readouterr()
         assert captured.out == """Question 1 |2|
-ok
+\tok
 Answer 1   Answer 2   
 
 Question 2 |2|
@@ -377,10 +373,10 @@ End training
         assert qa.questions_answers == {"Question 1": ["Answer 1", "Answer 2"]}
         captured = capsys.readouterr()
         assert captured.out == """Question 1 |2|
-ok
-Question 1
-Answer 1
-Answer 2
+\tok
+Question 1 |2|
+\tAnswer 1
+\tAnswer 2
 End training
 """
 
@@ -393,7 +389,7 @@ End training
         assert qa.questions_answers == {"Answer 1": ["Question 1"], "Answer 2": ["Question 1"]}
         captured = capsys.readouterr()
         assert captured.out == """Question 1 |2|
-ok
+\tok
 Answer 1 |1|
 End training
 """
@@ -701,9 +697,9 @@ def excel_to_questions_answers(file_name: str, column_name_questions, column_nam
 
 
 if __name__ == '__main__':
-    # main()
-    # qa = lyrics_to_questions_answers(song_lyrics, next_line=True, next_part=False, duplicate_line=True)
-    # qa.training(ordered=True)
+    main()
+    qa = lyrics_to_questions_answers(song_lyrics, next_line=True, next_part=False, duplicate_line=True)
+    qa.training(ordered=True)
     # qa_tft = QuestionsAnswers(tft_to_questions_answers(pbe=True))
     # qa_tft.reverse_dict()
     # # qa_tft.filter(items_filter=lambda keys, values: "R" in keys)
