@@ -7,6 +7,7 @@ from time import sleep
 from typing import Type
 
 import pandas as pd
+from django.db.models import QuerySet
 from pandas import DataFrame
 from peewee import Model, FloatField, IntegerField, CharField, DateTimeField, PostgresqlDatabase
 from playhouse.migrate import migrate, SchemaMigrator
@@ -16,6 +17,7 @@ from Files import run_cmd
 from Strings import quote
 from Times import now
 from Util import is_iter_but_not_str
+from Util_django import r
 
 
 def update_instance_model(instance, dict):
@@ -45,10 +47,12 @@ def print_create_model_class_code(fields):
     class_definition += f'        table_name = "TABLE_NAME"\n\n'
     for field_name, field_type in fields.items():
         peewee_field = peewee_field_types.get(type(field_type), 'UnknowField')
-        class_definition += f'    {str(field_name).replace(" ", "_").lower()} = {peewee_field}()\n'
+        class_definition += f'    {r(str(field_name)).lower()} = {peewee_field}()\n'
     print(class_definition)
 
 def query_to_df(query) -> DataFrame:
+    if type(query is QuerySet):
+        return pd.DataFrame(query)
     return DataFrame(query.dicts())
     # try:
     #     return DataFrame(query.dicts())

@@ -2,15 +2,17 @@ import json
 import re
 import socket
 from time import sleep
-from typing import TypeVar, Callable, Optional
+from typing import Callable, Optional, TypeVar
 
+import rdflib
 import requests
+from rdflib import Graph
 from requests.exceptions import ChunkedEncodingError, SSLError
 from requests_html import HTMLSession
-from urllib3.exceptions import NewConnectionError, MaxRetryError
+from urllib3.exceptions import MaxRetryError, NewConnectionError
 
 from Colors import printc
-from Times import now, elapsed_minutes
+from Times import elapsed_minutes, now
 
 T = TypeVar("T")
 E = TypeVar("E")
@@ -145,6 +147,45 @@ def obj_to_json(obj: object) -> json_T:
 def json_to_obj(js: json_T) -> object:
     return json.loads(js)
 
+
+def rdf_to_json(url):
+
+    import json
+    def aux():
+        url = ""
+        result = rdf_to_json(url)
+        if result:
+            print(json.dumps(result, indent=2))
+            with open('output.json', 'w') as f:
+                json.dump(result, f, indent=2)
+
+    g = Graph()
+    try:
+        for format_type in ['xml', 'turtle', 'n3', 'nt', 'json-ld']:
+            try:
+                g.parse(url, format=format_type)
+                break
+            except:
+                continue
+        data = {}
+        for subj, pred, obj in g:
+            subject = str(subj)
+            if subject not in data:
+                data[subject] = {}
+            predicate = str(pred)
+            if predicate not in data[subject]:
+                data[subject][predicate] = []
+            if isinstance(obj, rdflib.URIRef):
+                obj_value = str(obj)
+            elif isinstance(obj, rdflib.Literal):
+                obj_value = str(obj)
+            else:
+                obj_value = str(obj)
+            data[subject][predicate].append(obj_value)
+        return data
+    except Exception as e:
+        print(f"Error processing RDF: {e}")
+        return None
 
 if __name__ == '__main__':
     # asset_amount = call_request_api(["https://wax.light-api.net/api"], "account", "wax", "b4nvi.wam")

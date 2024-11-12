@@ -6,7 +6,7 @@ from time import sleep
 from typing import Callable
 
 # import Alert
-from Files import is_file_exist, delete, run_file
+from Files import is_file_exists, delete, run_file
 from Introspection import check_frames, frameinfo
 
 delete("locked")
@@ -45,10 +45,10 @@ def loop_run(fun: Callable, sleep_after_execution: float = 0.1, pre_sleep=0, **k
     def loop():
         sleep(pre_sleep)
         while True:
-            if not is_file_exist(locker_name):
+            if not is_file_exists(locker_name):
                 # print("execution started")
                 run(fun, 0.1, **kwargs)
-            while is_file_exist(locker_name):
+            while is_file_exists(locker_name):
                 sleep(0.001)
             # print("execution ended")
             sleep(sleep_after_execution)

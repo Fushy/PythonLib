@@ -5,6 +5,8 @@ from pathlib import Path
 
 SEP = os.sep
 
+# def get_current_folder_path():
+#     return os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 def join(path_a, path_b) -> Path:
     return Path(os.path.join(path_a, path_b))

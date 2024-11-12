@@ -322,13 +322,13 @@ def get_element_xpath(element: WebElement):
 def check_find_fun(driver: WebDriver, find_element_fun_name: str) -> Callable[[WebDriver], str]:
     find_element_fun = None
     if find_element_fun_name == "find_element_by_class_name":
-        find_element_fun = driver.find_elements_by_class_name
+        find_element_fun = lambda x: driver.find_element(value=x, by="class name")
     elif find_element_fun_name == "find_element_by_css_selector":
-        find_element_fun = driver.find_elements_by_css_selector
+        find_element_fun = lambda x: driver.find_element(value=x, by="css selector")
     elif find_element_fun_name == "find_element_by_xpath":
-        find_element_fun = driver.find_elements_by_xpath
+        find_element_fun = lambda x: driver.find_element(value=x, by="xpath")
     elif find_element_fun_name == "find_element_by_tag_name":
-        find_element_fun = driver.find_elements_by_xpath
+        find_element_fun = lambda x: driver.find_element(value=x, by="tag name")
     return find_element_fun
 
 

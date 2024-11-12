@@ -5,12 +5,12 @@ import pyautogui
 import win32gui
 import pygetwindow as gw
 from Classes import Point
-from Files import is_file_exist
+from Files import is_file_exists
 
 
 def launch_ahk_text(text, base=None, file_name="temp.ahk", encoding="utf8", reset_file=True):
     """ AutoHotkey.exe as administrator"""
-    if is_file_exist(file_name) and not reset_file:
+    if is_file_exists(file_name) and not reset_file:
         os.system(file_name)
         return
     if base is None:

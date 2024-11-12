@@ -11,7 +11,7 @@ from peewee import CharField, CompositeKey, DateTimeField, Model, MySQLDatabase,
 from pydub import AudioSegment, playback
 
 import Classes
-from Files import delete, is_file_exist, run_file
+from Files import delete, is_file_exists, run_file
 from Introspection import frameinfo
 import Telegrams
 import Threads
@@ -191,7 +191,7 @@ def say(speech: str, filename=None, lang="en", speed: float = 1, blocking=False,
     if not os.path.exists(pathname):
         Path(pathname).mkdir(parents=True, exist_ok=True)
     filename = pathname + filename + ".mp3"
-    if is_file_exist(filename):
+    if is_file_exists(filename):
         sound = read(filename, "mp3")
     else:
         tts = gTTS(text=speech, lang=lang, slow=False)

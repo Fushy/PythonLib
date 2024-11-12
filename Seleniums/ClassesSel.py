@@ -8,7 +8,7 @@ from typing import Callable, Optional, Iterable
 from selenium import webdriver
 from msedge.selenium_tools import Edge, EdgeOptions
 from msedge.selenium_tools.webdriver import WebDriver
-from selenium.common.exceptions import InvalidSessionIdException, TimeoutException, \
+from selenium.common.exceptions import InvalidArgumentException, InvalidSessionIdException, TimeoutException, \
     WebDriverException, NoSuchWindowException, StaleElementReferenceException, NoSuchElementException, \
     MoveTargetOutOfBoundsException, ElementNotInteractableException, ElementClickInterceptedException, SessionNotCreatedException
 from selenium.webdriver import ActionChains
@@ -26,6 +26,7 @@ from Enum import FIRST
 from Files import get_first_line
 from Introspection import current_lines, frameinfo, get_current_file_path
 from Seleniums.Selenium import profile_name, check_find_fun, get_element_text, get_element_class
+from Sys import SCREENS
 from Times import now, elapsed_seconds
 from Util import is_iter_but_not_str
 
@@ -140,24 +141,24 @@ class Browser:
         # exe_path = r"{}Drivers{}msedgedriver.exe".format(pathname, os.path.sep)
         try:
             # driver = Edge(options=options, executable_path=exe_path)
-            driver = webdriver.Chrome(options=options, executable_path=exe_path)
+            driver = webdriver.Chrome(options=options)
             driver.set_window_position(self.point.x, self.point.y)
             driver.set_window_size(1920, 1080)
             self.driver = driver
             self.print("set_browser", False)
-        except SessionNotCreatedException:
-            printc("SessionNotCreatedException", background_color="red")
-            while True:
-                Alert.say("Have to download new browser driver version")
-                sleep(3)
+        # except SessionNotCreatedException:
+        #     printc("SessionNotCreatedException", background_color="red")
+        #     while True:
+        #         Alert.say("Have to download new browser driver version")
+        #         sleep(3)
         except InvalidArgumentException:
             raise InvalidSessionIdException("profile is already open")
-        except WebDriverException as err:
-            sleep(5)
-            self.printc("WebDriverException" + str(err), color="black", background_color="red")
-            # return self.set_browser(profile)
-            self.quit()
-            return Browser(SCREENS[1], profile=self.profile)
+        # except WebDriverException as err:
+        #     sleep(5)
+        #     self.printc("WebDriverException" + str(err), color="black", background_color="red")
+        #     # return self.set_browser(profile)
+        #     self.quit()
+        #     return Browser(SCREENS[1], profile=self.profile)
 
     def update_windows_url(self) -> Optional[str]:
         try:
@@ -394,19 +395,15 @@ class Browser:
 
     def get_element(self,
                     selectors: str | Iterable[str],
-                    find_element_fun: Callable[[WebDriver], str] = None,
+                    find_by: str ="xpath",
+                    get_one_element=True,
                     debug=False,
                     all_windows=False) \
             -> None | WebElement | list[WebElement]:
-        # .find_elements(By.TAG_NAME, "tr")[1:]
         if debug is None:
             self.print(("get_element", selectors), False)
-        if find_element_fun is None:
-            find_element_fun = self.driver.find_element_by_xpath
-        find_element_fun_name = find_element_fun.__name__
-        is_elements = "elements" in find_element_fun_name
-        if not is_elements:
-            find_element_fun = check_find_fun(self.driver, find_element_fun_name)
+        # if not is_elements:
+        #     find_element_fun = check_find_fun(self.driver, find_element_fun_name)
         save_work_num = self.working_window_num
         for i in range(len(self)):
             if i != 0:
@@ -415,8 +412,8 @@ class Browser:
                 if type(selectors) is str:
                     selectors = [selectors]
                 for selector in selectors:
-                    elements: list[WebElement] = find_element_fun(selector)
-                    if is_elements:
+                    elements: list[WebElement] = self.find_element(find_by, selector)
+                    if get_one_element:
                         # if all_windows:
                         #     self.goto_work()
                         return elements
@@ -438,11 +435,11 @@ class Browser:
             self.goto(save_work_num)
         return None
 
-    def get_class(self, selector: str, find_element_fun: Callable[[WebDriver], str] = None, debug: bool = False) \
+    def get_class(self, selector: str, find_by: str ="xpath", debug: bool = False) \
             -> Optional[WebElement]:
         if debug is None:
             self.print(("get_class", selector), False)
-        return get_element_class(self.get_element(selector, find_element_fun=find_element_fun))
+        return get_element_class(self.get_element(selector, find_by=find_by))
 
     def get_all_tag_that_contains(self,
                                   web_element,
@@ -480,7 +477,7 @@ class Browser:
     def wait_element(self,
                      url,
                      selectors: str | Iterable[str],
-                     find_element_fun: Callable[[WebDriver], str] = None,
+                     find_by: str ="xpath",
                      appear=True,
                      refresh: int = None,
                      leave: int = 60,
@@ -501,16 +498,16 @@ class Browser:
         while not condition_satisfy:
             self.assert_url(url)
             if appear:
-                element = self.get_element(selectors, find_element_fun)
+                element = self.get_element(selectors, find_by)
                 condition_satisfy = element is not None
                 if condition_satisfy:
                     return element
             elif not appear:
-                condition_satisfy = self.get_element(selectors, find_element_fun) is None
+                condition_satisfy = self.get_element(selectors, find_by) is None
                 if condition_satisfy:
                     return True
             if debug:
-                self.print((selectors, find_element_fun, "url =", url))
+                self.print((selectors, find_by, "url =", url))
             if refresh is not None and (now() - start_refresh).total_seconds() >= refresh:
                 if url is not None and url != "":
                     self.new_page(url)
@@ -528,7 +525,7 @@ class Browser:
     def big_wait_element(self,
                          url: str,
                          selector: str,
-                         find_element_fun: Callable[[WebDriver], str] = None,
+                         find_by: str ="xpath",
                          text: str = None,
                          class_text: str = None,
                          refresh: int = None,
@@ -537,18 +534,13 @@ class Browser:
         """ Attend qu'un element apparaisse avec plusieurs critere restrictif"""
         self.print(("big_wait_element", url, selector, text, class_text, refresh, leave), False)
         self.assert_url(url)
-        if find_element_fun is None:
-            find_element_fun = self.driver.find_element_by_xpath
-        if "elements" in find_element_fun.__name__:
-            self.print("wait_element_find_element_fun_is_not_a_good_type")
-            raise ValueError("wait_element_find_element_fun_is_not_a_good_type")
         start_refresh = now()
         start_leave = now()
         while leave is None or elapsed_seconds(start_leave) < leave:
             if refresh is not None and elapsed_seconds(start_refresh) < refresh:
                 self.refresh()
                 start_refresh = now()
-            element = self.get_element(selector, find_element_fun)
+            element = self.get_element(selector, find_by)
             if element is not None:
                 satisfy_text, satisfy_class = True, True
                 if text is not None:
@@ -566,7 +558,7 @@ class Browser:
     def clicking_big_wait_element(self,
                                   url: str,
                                   selector: str,
-                                  find_element_fun: Callable[[WebDriver], str] = None,
+                                  find_by: str ="xpath",
                                   text: str = None,
                                   class_text: str = None,
                                   element_to_click: WebElement = None,
@@ -577,11 +569,6 @@ class Browser:
         """ Attend qu'un element apparaisse avec plusieurs critere restrictif"""
         self.print(("clicking_big_wait_element", url, selector, text, class_text, sleep_click, refresh, leave), False)
         self.assert_url(url)
-        if find_element_fun is None:
-            find_element_fun = self.driver.find_element_by_xpath
-        if "elements" in find_element_fun.__name__:
-            self.print("wait_element_find_element_fun_is_not_a_good_type")
-            raise ValueError("wait_element_find_element_fun_is_not_a_good_type")
         start_refresh = now()
         start_leave = now()
         last_click = now()
@@ -589,7 +576,7 @@ class Browser:
             if refresh is not None and elapsed_seconds(start_refresh) < refresh:
                 self.refresh()
                 start_refresh = now()
-            element = self.get_element(selector, find_element_fun)
+            element = self.get_element(selector, find_by)
             if element is not None:
                 if elapsed_seconds(last_click) >= sleep_click:
                     if element_to_click is None:
@@ -610,29 +597,21 @@ class Browser:
                     return element
         return False
 
-    def get_text(self, url, selector: str | Iterable[str], find_element_fun=None, refresh=None, leave=None, debug=False) \
+    def get_text(self, url, selector: str | Iterable[str], find_by: str ="xpath", refresh=None, leave=None, debug=False) \
             -> Optional[str]:
         """ Retourne le texte d'un element """
         if debug is None:
             self.print(("get_text", selector, refresh, leave), False)
         self.assert_url(url)
-        if find_element_fun is None:
-            find_element_fun = self.driver.find_element_by_xpath
-        if "elements" in find_element_fun.__name__:
-            self.print("wait_element_find_element_fun_is_not_a_good_type")
-            raise ValueError("wait_element_find_element_fun_is_not_a_good_type")
-        if "elements" in find_element_fun.__name__:
-            self.print("wait_element_find_element_fun_is_not_a_good_type")
-            raise ValueError("wait_element_find_element_fun_is_not_a_good_type")
         try:
             if leave is not None:
-                if not self.wait_element(url, selector, find_element_fun, leave=leave, debug=debug):
+                if not self.wait_element(url, selector, find_by, leave=leave, debug=debug):
                     if debug:
                         self.print("get_text_2 None")
                     return None
             elif refresh is not None:
-                self.wait_element(url, selector, find_element_fun, refresh=refresh, debug=debug)
-            element = self.get_element(selector, find_element_fun)
+                self.wait_element(url, selector, find_by, refresh=refresh, debug=debug)
+            element = self.get_element(selector, find_by)
             if element is None:
                 return None
             return get_element_text(element, debug)
@@ -646,7 +625,7 @@ class Browser:
                   refresh=22,
                   min_txt_len=1,
                   debug=True,
-                  find_element_fun=None) -> Optional[str]:
+                  find_by: str ="xpath") -> Optional[str]:
         """ Retourne le texte d'un premier element trouvé"""
         self.print(("wait_text", leave, refresh, min_txt_len))
         self.assert_url(url)
@@ -660,11 +639,11 @@ class Browser:
                 start_refresh = now()
             if is_iter_but_not_str(selectors):
                 for selector in selectors:
-                    text = self.get_text(url, selector, leave=1, debug=debug, find_element_fun=find_element_fun)
+                    text = self.get_text(url, selector, leave=1, debug=debug, find_by=find_by)
                     if text is not None and len(text) >= min_txt_len:
                         return text
             else:
-                text = self.get_text(url, selectors, leave=1, debug=debug, find_element_fun=find_element_fun)
+                text = self.get_text(url, selectors, leave=1, debug=debug, find_by=find_by)
                 if text is not None and len(text) >= min_txt_len:
                     return text
         return None
@@ -802,6 +781,24 @@ class Browser:
         confirmation_popup = WebDriverWait(self.driver, 10).until(EC.alert_is_present())
         confirmation_popup.accept()
 
+    def find_element(self, find_by, selector):
+        try:
+            return self.driver.find_element(find_by, selector)
+        except NoSuchElementException:
+            pass
+
+def get_all_attributes(driver: WebDriver, element: WebElement) -> dict[str, str]:
+    """ If None, try to get a child """
+    return driver.execute_script("""
+        let attributes = {};
+        let element = arguments[0];
+        let attrs = element.attributes;
+        for(let i = 0; i < attrs.length; i++) {
+            attributes[attrs[i].name] = attrs[i].value;
+        }
+        return attributes;
+    """, element)
+
 # def scrap_google_search():
 #     countries = [(country.name.split(",")[0] if "," in country.name else country.name) for country in
 #                  pycountry.countries]
@@ -839,8 +836,8 @@ class Browser:
 
 if __name__ == '__main__':
     ## s = screen_rect(1000)
-    browser = Browser(profile=r"user-data-dir=B:\_Documents\Ragnarok_uaro")
-    # browser = Browser()
+    # browser = Browser(profile=r"user-data-dir=B:\_Documents\Ragnarok_uaro")
+    browser = Browser()
     # # r"user-data-dir=C:\Users\alexi_mcstqby\Documents\Bots\AlienWorlds\Profiles\progk")
     # browser.new_page('https://www.expressvpn.com/what-is-my-ip')
     # browser.new_page('https://fr.tradingview.com/chart/dOWkigGU/?symbol=BINANCE%3ABTCBUSD')

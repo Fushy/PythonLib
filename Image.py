@@ -36,7 +36,7 @@ import win32ui
 
 from Classes import Point, Rectangle
 from Colors import printc
-from Files import delete, is_ascii, is_file_exist, move_to, overwrite
+from Files import delete, is_ascii, is_file_exists, move_to, overwrite
 import Threads
 from Times import elapsed_seconds, now
 from Util import COMMON_CHARS, restrict_num, string_encoded_to_bytes
@@ -785,7 +785,7 @@ def image_search(image: Union[np.array, Rectangle],
     confidence = 0
     pixels_unfounded = 1
     for i, (folder_image, crop_size) in enumerate(templates):
-        if not is_file_exist(folder_image):
+        if not is_file_exists(folder_image):
             if debug:
                 print("folder_image not exists")
             return None, None

@@ -1,21 +1,21 @@
 import itertools
-from collections.abc import Iterable
-from datetime import datetime, timedelta
-from hashlib import blake2b
 import os
 import string
 import sys
+from collections.abc import Iterable
+from datetime import datetime, timedelta
+from hashlib import blake2b
 from time import sleep
 from typing import Callable, Container
+from urllib.parse import quote
 
-from pandas import DataFrame
-from pandas import Series
 import pandas as pd
 import pyperclip
 import sympy
+from cryptography.fernet import Fernet
+from pandas import DataFrame, Series
 from sympy import Eq
 from sympy.parsing.sympy_parser import parse_expr
-from cryptography.fernet import Fernet
 
 from Files import run_cmd
 from Times import now
@@ -66,6 +66,12 @@ COMMON_CHARS = (string.ascii_lowercase
 # ⬛⬜
 # ♛♕♘♞♖♜♝♗
 
+def make_url_clickable(url: str) -> str:
+    return quote(url, safe=':/?=')
+
+
+def dict_to_obj_type(d):
+    return type("Object", (), d)()
 
 def get_obj_file():
     run_cmd("conda env export > packages.yml")
@@ -294,11 +300,10 @@ def datetime_to_timedelta(x):
     return x - datetime.strptime("0:0:0", "%H:%M:%S")
 
 
+
 def is_iter_but_not_str(element):
     """ Si le type de l'objet peut être parcouru et n'est pas de type str"""
-    if isinstance(element, Iterable) and not isinstance(element, str):
-        return True
-    return False
+    return isinstance(element, Iterable) and not isinstance(element, str)
 
 
 def know_connected_wifi_password():
