@@ -7,8 +7,9 @@ from datetime import datetime, timedelta
 from hashlib import blake2b
 from time import sleep
 from typing import Callable, Container
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
+from io import BytesIO
 import pandas as pd
 import pyperclip
 import sympy
@@ -66,9 +67,15 @@ COMMON_CHARS = (string.ascii_lowercase
 # ⬛⬜
 # ♛♕♘♞♖♜♝♗
 
+def read_image(file_name):
+    with open(file_name, 'rb') as file:
+        return BytesIO(file.read())
+
 def make_url_clickable(url: str) -> str:
     return quote(url, safe=':/?=')
 
+def make_url_redable(url: str) -> str:
+    return unquote(url, safe=':/?=')
 
 def dict_to_obj_type(d):
     return type("Object", (), d)()

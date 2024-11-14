@@ -61,7 +61,7 @@ def download_with_progress(url, output_path=None, save=True, debug=False):
         if debug:
             print(f"File size: {size_mb}")
         file_content = io.BytesIO()
-        print(url)
+        print(unquote(url), url)
         with tqdm(total=file_size, unit='B', unit_scale=True, miniters=1, desc="Downloading") as t:
             for chunk in response.iter_content(chunk_size=8192):
                 file_content.write(chunk)
