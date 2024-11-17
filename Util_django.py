@@ -125,6 +125,8 @@ def get_related_field_names(model, related_name, contains=None):
             if not field.is_relation and (not contains or any(c in field.name for c in contains))]
 
 
-def setup_django(project_name):
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', project_name + '.settings')
+def setup_django(package_path):
+    package_path = package_path.replace("/", ".")
+    package_path = package_path[:-1] if package_path[-1] == "." or package_path[-1] == "/" else package_path
+    os.environ.setdefault('DJANGO_SETTINGS_MODULE', package_path)
     django.setup()
