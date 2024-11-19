@@ -10,10 +10,12 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 
 
-def get_soup_from_html(url) -> BeautifulSoup:
+def get_soup_from_html(url, safe=True) -> BeautifulSoup:
     page_html = requests.get(url)
     while page_html.status_code != 200:
         print("page_html.status_code != 200 :", page_html.status_code)
+        if not safe:
+            return page_html.status_code
         sleep(30)
         page_html = requests.get(url)
     return BeautifulSoup(page_html.text, "html.parser")

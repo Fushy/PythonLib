@@ -1,13 +1,3 @@
-from datetime import datetime
-import os
-from pathlib import Path
-from pickle import dump, load
-import shutil
-from typing import Callable, Optional
-
-from Paths import SEP
-
-
 # import chardet
 #
 # with open('filename.txt', 'rb') as f:
@@ -16,16 +6,23 @@ from Paths import SEP
 # encoding = result['encoding']
 # with open('filename.txt', encoding=encoding) as f:
 #     content = f.read()
+import os
+import shutil
+from pathlib import Path, WindowsPath
+from pickle import dump, load
+from typing import Callable, Optional
 
 
 # os.mkdir(directory)
 # list(map(lambda d: os.makedirs(d, exist_ok=True), dirs))
 
 
-def save_obj_to_file(obj, file_name, path_name=None):
-    if path_name and not is_file_exists(path_name):
-        os.makedirs(os.path.dirname(path_name), exist_ok=True)
-    with open(path_name + SEP + file_name + ".plk", 'wb') as file:
+def save_obj_to_file(obj, file_name: Path):
+    assert file_name.suffix == ".plk" and type(file_name) is WindowsPath
+    path_name = file_name.parent
+    if not is_file_exists(path_name):
+        os.makedirs(path_name, exist_ok=True)
+    with open(file_name.as_posix(), 'wb') as file:
         dump(obj, file)
 
 
@@ -34,7 +31,7 @@ def get_obj_from_file(file_name):
         return load(file)
 
 
-def is_file_exists(path: str) -> bool:
+def is_file_exists(path) -> bool:
     """ Due to concurrency, after an is_existing call, it may be possible that the file doesn't exist,
     in this case, use a try-catch exception when the file is used """
     return os.path.exists(path)
@@ -48,7 +45,7 @@ def is_file(path: str) -> bool:
     return os.path.isfile(path)
 
 
-def get_files_from_path(*paths: str | Path, _filter: Callable[[str], bool] = None, recursive: bool = False) -> list[str]:
+def get_files_from_path(*paths: str | WindowsPath, _filter: Callable[[str], bool] = None, recursive: bool = False) -> list[str]:
     import glob
     files = []
     for path in paths:
