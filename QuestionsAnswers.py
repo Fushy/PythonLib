@@ -697,20 +697,20 @@ def excel_to_questions_answers(file_name: str, column_name_questions, column_nam
 
 
 if __name__ == '__main__':
-    main()
-    qa = lyrics_to_questions_answers(song_lyrics, next_line=True, next_part=False, duplicate_line=True)
-    qa.training(ordered=True)
-    # qa_tft = QuestionsAnswers(tft_to_questions_answers(pbe=True))
-    # qa_tft.reverse_dict()
+    # main()
+    # qa = lyrics_to_questions_answers(song_lyrics, next_line=True, next_part=False, duplicate_line=True)
+    # qa.training(ordered=True)
+    qa_tft = QuestionsAnswers(tft_to_questions_answers(pbe=True))
     # # qa_tft.filter(items_filter=lambda keys, values: "R" in keys)
     # qa_tft.training(one_to_validate=False, contain_to_validate=False)
-    # qa_tft.training(one_to_validate=False, contain_to_validate=False, keys_to_pickup=3)
+    # qa_tft.reverse_dict()
+    qa_tft.training(one_to_validate=False, contain_to_validate=False, keys_to_pickup=10)
     # qa_tft.exam(reset_if_wrong=True)
     # qa_tft.exam(reset_if_wrong=False, keys_to_pickup=5)
     # qa_english = file_to_questions_answers("anglais.txt")
-    while True:
-        qa = excel_to_questions_answers("english-french-tagalog.xlsx", "English", "French")
-        qa.training(normal_and_reverse=True, keys_to_pickup=5)
+    # while True:
+    #     qa = excel_to_questions_answers("english-french-tagalog.xlsx", "English", "French")
+    #     qa.training(normal_and_reverse=True, keys_to_pickup=5)
         # qa_english = file_to_questions_answers("anglais.txt")
         # qa_english.training(keys_to_pickup=3)
 

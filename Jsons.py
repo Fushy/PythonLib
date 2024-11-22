@@ -4,9 +4,9 @@ import socket
 from time import sleep
 from typing import Callable, Optional, TypeVar
 
-import rdflib
+# import rdflib
 import requests
-from rdflib import Graph
+# from rdflib import Graph
 from requests.exceptions import ChunkedEncodingError, SSLError
 from requests_html import HTMLSession
 from urllib3.exceptions import MaxRetryError, NewConnectionError
@@ -33,7 +33,7 @@ def text_to_json(json_text: str) -> json_base:
     return json.loads(correct_json)
 
 
-def url_to_json(url: str, timelimit=1) -> Optional[json_T]:
+def url_to_json(url: str, timelimit=1, json_correct_fun=None, exit_if_error=5) -> Optional[json_T]:
     html_session = HTMLSession()
     try:
         start = now()
@@ -48,11 +48,15 @@ def url_to_json(url: str, timelimit=1) -> Optional[json_T]:
                     print("url_to_json error: err Response in html_result_text")
                     sleep(5)
                     continue
-                json_value = text_to_json(html_result_text)
+                # to_correct_json
+                corrected_text = json_correct_fun(html_result_text) if json_correct_fun else html_result_text
+                json_value = json.loads(corrected_text)
                 break
             except (ChunkedEncodingError, ConnectionError, NewConnectionError, socket.gaierror, json.decoder.JSONDecodeError,
-                    requests.exceptions.ConnectTimeout):
+                    requests.exceptions.ConnectTimeout, requests.exceptions.ConnectionError):
                 printc("url_to_json ChunkedEncodingError", background_color="red")
+                if exit_if_error:
+                    return
                 sleep(2)
                 return url_to_json(url)
         return json_value
@@ -148,44 +152,44 @@ def json_to_obj(js: json_T) -> object:
     return json.loads(js)
 
 
-def rdf_to_json(url):
-
-    import json
-    def aux():
-        url = ""
-        result = rdf_to_json(url)
-        if result:
-            print(json.dumps(result, indent=2))
-            with open('output.json', 'w') as f:
-                json.dump(result, f, indent=2)
-
-    g = Graph()
-    try:
-        for format_type in ['xml', 'turtle', 'n3', 'nt', 'json-ld']:
-            try:
-                g.parse(url, format=format_type)
-                break
-            except:
-                continue
-        data = {}
-        for subj, pred, obj in g:
-            subject = str(subj)
-            if subject not in data:
-                data[subject] = {}
-            predicate = str(pred)
-            if predicate not in data[subject]:
-                data[subject][predicate] = []
-            if isinstance(obj, rdflib.URIRef):
-                obj_value = str(obj)
-            elif isinstance(obj, rdflib.Literal):
-                obj_value = str(obj)
-            else:
-                obj_value = str(obj)
-            data[subject][predicate].append(obj_value)
-        return data
-    except Exception as e:
-        print(f"Error processing RDF: {e}")
-        return None
+# def rdf_to_json(url):
+#
+#     import json
+#     def aux():
+#         url = ""
+#         result = rdf_to_json(url)
+#         if result:
+#             print(json.dumps(result, indent=2))
+#             with open('output.json', 'w') as f:
+#                 json.dump(result, f, indent=2)
+#
+#     g = Graph()
+#     try:
+#         for format_type in ['xml', 'turtle', 'n3', 'nt', 'json-ld']:
+#             try:
+#                 g.parse(url, format=format_type)
+#                 break
+#             except:
+#                 continue
+#         data = {}
+#         for subj, pred, obj in g:
+#             subject = str(subj)
+#             if subject not in data:
+#                 data[subject] = {}
+#             predicate = str(pred)
+#             if predicate not in data[subject]:
+#                 data[subject][predicate] = []
+#             if isinstance(obj, rdflib.URIRef):
+#                 obj_value = str(obj)
+#             elif isinstance(obj, rdflib.Literal):
+#                 obj_value = str(obj)
+#             else:
+#                 obj_value = str(obj)
+#             data[subject][predicate].append(obj_value)
+#         return data
+#     except Exception as e:
+#         print(f"Error processing RDF: {e}")
+#         return None
 
 if __name__ == '__main__':
     # asset_amount = call_request_api(["https://wax.light-api.net/api"], "account", "wax", "b4nvi.wam")

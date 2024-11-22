@@ -105,7 +105,6 @@ def get_defaults_lookup_fields(model, model_dict):
 def get_updated_or_create(model, model_dict):
     assert type(model_dict) is dict
     defaults, mandatory_fields = get_defaults_lookup_fields(model, model_dict)
-    # defaults is used to get the instance incase init require a self field
     instance, created = model.objects.get_or_create(defaults=defaults, **mandatory_fields)
     if not created:
         for key, value in defaults.items():

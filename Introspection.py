@@ -22,7 +22,7 @@ def get_current_file_name(depth=2) -> str:
     return frameinfo(depth)["filename"]
 
 
-def get_current_file_path(depth=2) -> Path:
+def get_current_complete_file_name(depth=2) -> Path:
     return frameinfo(depth)["path"]
 
 
