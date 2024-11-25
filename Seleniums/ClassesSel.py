@@ -24,7 +24,7 @@ import Classes
 from Colors import printc
 from Enum import FIRST
 from Files import get_first_line
-from Introspection import current_lines, frameinfo, get_current_file_path
+from Introspection import current_lines, frameinfo
 from Seleniums.Selenium import profile_name, check_find_fun, get_element_text, get_element_class
 from Sys import SCREENS
 from Times import now, elapsed_seconds
