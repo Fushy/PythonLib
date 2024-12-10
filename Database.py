@@ -7,6 +7,7 @@ from time import sleep
 from typing import Type
 
 import pandas as pd
+import peewee
 from django.db.models import QuerySet
 from pandas import DataFrame
 from peewee import Model, FloatField, IntegerField, CharField, DateTimeField, PostgresqlDatabase
@@ -51,8 +52,10 @@ def print_create_model_class_code(fields):
     print(class_definition)
 
 def query_to_df(query) -> DataFrame:
-    if type(query is QuerySet):
+    if type(query) is QuerySet:
         return pd.DataFrame(query)
+    elif type(query) is peewee.ModelSelect:
+        return DataFrame(query.dicts())
     return DataFrame(query.dicts())
     # try:
     #     return DataFrame(query.dicts())

@@ -92,7 +92,18 @@ def get_or_none(model_class, **kwargs) -> Optional:
 
 
 def get_lookup_fields(model):
-    return model._meta.constraints[0].fields
+    lookup_fields = []
+    def get_model_constraints(model_class):
+        fields = []
+        if hasattr(model_class._meta, 'constraints'):
+            for constraint in model_class._meta.constraints:
+                if hasattr(constraint, 'fields'):
+                    fields.extend(constraint.fields)
+        return fields
+    lookup_fields.extend(get_model_constraints(model))
+    for parent in model._meta.get_parent_list():
+        lookup_fields.extend(get_model_constraints(parent))
+    return list(dict.fromkeys(lookup_fields))
 
 
 def get_defaults_lookup_fields(model, model_dict):
