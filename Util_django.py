@@ -2,6 +2,7 @@ import os
 from typing import Optional
 
 import django
+from django.db import IntegrityError
 
 
 # class SoundField(FileField):
@@ -93,6 +94,7 @@ def get_or_none(model_class, **kwargs) -> Optional:
 
 def get_lookup_fields(model):
     lookup_fields = []
+
     def get_model_constraints(model_class):
         fields = []
         if hasattr(model_class._meta, 'constraints'):
@@ -100,6 +102,7 @@ def get_lookup_fields(model):
                 if hasattr(constraint, 'fields'):
                     fields.extend(constraint.fields)
         return fields
+
     lookup_fields.extend(get_model_constraints(model))
     for parent in model._meta.get_parent_list():
         lookup_fields.extend(get_model_constraints(parent))
@@ -113,10 +116,22 @@ def get_defaults_lookup_fields(model, model_dict):
     return defaults, mandatory_fields
 
 
-def get_updated_or_create(model, model_dict):
+def get_updated_or_create(model, model_dict, base_model=None):
+    """base_model peut etre omis est remplacé par une fonction qui cherche le model de base"""
     assert type(model_dict) is dict
     defaults, mandatory_fields = get_defaults_lookup_fields(model, model_dict)
-    instance, created = model.objects.get_or_create(defaults=defaults, **mandatory_fields)
+    try:
+        instance, created = model.objects.get_or_create(defaults=defaults, **mandatory_fields)
+    except IntegrityError:
+        """ IntegrityError happens when a submodel doesnt exists but the supermodel exists with the same key """
+        base_instance = base_model.objects.get(**mandatory_fields)
+        instance = model()
+        for field in base_instance._meta.fields:
+            setattr(instance, field.name, getattr(base_instance, field.name))
+        for key, value in defaults.items():
+            setattr(instance, key, value)
+        instance.save()
+        created = True
     if not created:
         for key, value in defaults.items():
             setattr(instance, key, value)

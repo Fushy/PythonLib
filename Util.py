@@ -60,7 +60,7 @@ from Times import now
 COMMON_CHARS = (string.ascii_lowercase
                 + string.ascii_uppercase
                 + string.digits
-                + "\ !#$%&()-@^_`{}~+,.;=[]\n")  # do not change "\ " it disables space character on command line
+                + "\\ !#$%&()-@^_`{}~+,.;=[]\n")  # do not change "\ " it disables space character on command line
 
 
 # utils ascii chars https://emojipedia.org/fr/
