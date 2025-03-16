@@ -30,6 +30,8 @@ def get_project_path(depth_current_file=1) -> str:
     """current file dir - depth """
     return frameinfo(1 + depth_current_file)["pathname"]
 
+def get_current_folder() -> str:
+    return os.path.basename(os.getcwd())
 
 def abspath(path: str) -> Path:
     # if not is_file_exist(path):

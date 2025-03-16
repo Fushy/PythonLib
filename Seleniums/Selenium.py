@@ -348,4 +348,4 @@ def get_element_check_all_windows(browser, selector, find_element_fun=None):
 
 def get_profile_path(name: str):
     filename = frameinfo(2)["filename"]
-    return "user-data-dir={}Profiles{}{}{}{}".format(os.getcwd()[:-len(filename)], os.path.sep, filename, os.path.sep, name)
+    return "user-user-data-dir={}Profiles{}{}{}{}".format(os.getcwd()[:-len(filename)], os.path.sep, filename, os.path.sep, name)

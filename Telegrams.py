@@ -1,71 +1,88 @@
-import sys
-from time import sleep
-import traceback
+import asyncio
+import os
+import threading
+import time
 
-import telegram
-from telegram import Update, Bot
-from telegram.error import NetworkError
-from telegram.ext import CallbackContext, Filters, Updater, MessageHandler, CommandHandler
+from dotenv import load_dotenv
+from telegram import Bot
 
-from Files import get_first_line
-import Threads
+from Threads import run
+from Times import now
 
 USER_IDS = {"ale": 1522961892}
+load_dotenv()
 
 
-def start(update: Update, context: CallbackContext):
-    """This function is called every time the Bot receives the command "/start" """
-    print(
-        update.effective_user,
-        update.effective_message.date.strftime("%Y-%m-%d %H:%M:%S"),
-        update.effective_message.text, context.args)
-    context.bot.send_message(chat_id=update.effective_user.id, text="You have started the bot.")
+async def send_telegram_message(api_key, chat_id, text):
+    bot = Bot(token=api_key)
+    print(now(), "telegram send", f"|{text[:1000]}|")
+    await bot.send_message(chat_id=chat_id, text=text[:1000])
+    return True
 
 
-def echo(update: Update, context: CallbackContext):
-    """This function is called every time the Bot receives a message (not a command) """
-    print(
-        update.effective_user,
-        update.effective_message.date.strftime("%Y-%m-%d %H:%M:%S"),
-        update.effective_message.text)
-    context.bot.send_message(chat_id=update.effective_user.id, text=update.message.text)
-
-
-def message(msg: str, to: str = None):
-    """
-    telegram.error.BadRequest: Chat not found
-        First send a message to the bot before the bot can send messages to you
-    """
+async def message_async(msg: str, to: str = None):
     if to is None:
         id_to = USER_IDS["ale"]
     else:
         id_to = USER_IDS[to]
-    # logging.basicConfig(date_format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
-    api_key: str = get_first_line("B:\\_Documents\\APIs\\telegram_key")
-    bot: Bot = telegram.Bot(token=api_key)
-    updater: Updater = Updater(token=api_key, use_context=True)
-    dispatcher = updater.dispatcher
-    echo_msg_handler: MessageHandler = MessageHandler(Filters.text & (~Filters.command), echo)
-    dispatcher.add_handler(echo_msg_handler)
-    start_cmd_handler: CommandHandler = CommandHandler('start', start)
-    dispatcher.add_handler(start_cmd_handler)
-    try:
-        bot.send_message(chat_id=id_to, text=msg[:1000])
-    except NetworkError:
-        print(traceback.format_exc(), file=sys.stderr)
-        pass
-        sleep(5)
-    #     return message(msg, to)
-    updater.start_polling()
 
-    def aux():
-        updater.stop()
-        dispatcher.stop()
-        sleep(10)
-
-    Threads.run(aux)
-    # Thread(target=aux).start()
+    api_key = os.getenv("TELEGRAM_API_KEY")
+    if not api_key:
+        print("Error: TELEGRAM_API_KEY not found in .env file")
+        return
+    await send_telegram_message(api_key, id_to, msg)
 
 
-if __name__ == '__main__':
-    message("telegram message")
+telegram_global_loop = None
+telegram_loop_thread = None
+telegram_loop_ready = threading.Event()
+
+
+def start_background_loop(loop):
+    asyncio.set_event_loop(loop)
+    loop.run_forever()
+
+
+def get_event_loop():
+    global telegram_global_loop, telegram_loop_thread
+    if telegram_global_loop is None:
+        with threading.Lock():
+            if telegram_global_loop is None:
+                telegram_global_loop = asyncio.new_event_loop()
+
+                telegram_loop_thread = threading.Thread(
+                    target=start_background_loop,
+                    args=(telegram_global_loop,),
+                    daemon=True
+                )
+                telegram_loop_thread.start()
+                time.sleep(0.5)
+
+    return telegram_global_loop
+
+
+def message(msg: str, to: str = None):
+    """Send a Telegram message asynchronously using a background event loop.
+    This function schedules the message send but does not wait for completion. If you need to ensure all messages are sent before proceeding or exiting the
+    program, you must explicitly wait (e.g., using `threading.Event().wait()` in the main thread) or modify this function to block until the send is complete.
+    Without a wait mechanism, the program may exit before messages are fully sent, especially in short-lived scripts."""
+    loop = get_event_loop()
+
+    # Add a safety check to ensure loop is not None
+    if loop is None:
+        raise RuntimeError("Failed to create event loop")
+
+    asyncio.run_coroutine_threadsafe(message_async(msg, to), loop)
+
+
+def aux():
+    message("message aaa")
+
+
+if __name__ == "__main__":
+    profiles_dir = os.getenv("BROWSER_PROFILES")
+    aux()
+    aux()
+    run(aux)
+    run(aux)
+    # threading.Event().wait()

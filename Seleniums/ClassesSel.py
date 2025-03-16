@@ -109,7 +109,7 @@ class Browser:
         self.driver = None
         self.windows_url: list[str] = [""]
         if profile is not None:
-            assert "user-data-dir=" in profile
+            assert "user-user-data-dir=" in profile
             self.profile = profile
         elif profile is None and self.profile is not None:
             pass
@@ -118,7 +118,7 @@ class Browser:
         num = get_first_line(r"C:\Windows\addins\num")
         if num != "" and profile is not None:
             end = profile[profile.find("\\Profiles\\"):]
-            self.profile = r"user-data-dir=C:\Users\Alexis\Documents" + end
+            self.profile = r"user-user-data-dir=C:\Users\Alexis\Documents" + end
         # options = webdriver.FirefoxOptions()
         options = webdriver.ChromeOptions()
         # options = EdgeOptions()
@@ -137,7 +137,7 @@ class Browser:
         # exe_path = r"{}Drivers{}msedgedriver.exe".format(pathname, os.path.sep)
         # exe_path = r"{}Drivers{}operadriver.exe".format(pathname, os.path.sep).replace("\\", "/")
         # exe_path = r"{}Drivers{}operadriver.exe".format(pathname, os.path.sep)
-        exe_path = r"{}Drivers{}chromedriver.exe".format(pathname, os.path.sep)
+        exe_path = f"{pathname}Drivers{os.path.sep}chromedriver.exe"
         # exe_path = r"{}Drivers{}msedgedriver.exe".format(pathname, os.path.sep)
         try:
             # driver = Edge(options=options, executable_path=exe_path)
@@ -836,9 +836,9 @@ def get_all_attributes(driver: WebDriver, element: WebElement) -> dict[str, str]
 
 if __name__ == '__main__':
     ## s = screen_rect(1000)
-    # browser = Browser(profile=r"user-data-dir=B:\_Documents\Ragnarok_uaro")
+    # browser = Browser(profile=r"user-user-data-dir=B:\_Documents\Ragnarok_uaro")
     browser = Browser()
-    # # r"user-data-dir=C:\Users\alexi_mcstqby\Documents\Bots\AlienWorlds\Profiles\progk")
+    # # r"user-user-data-dir=C:\Users\alexi_mcstqby\Documents\Bots\AlienWorlds\Profiles\progk")
     # browser.new_page('https://www.expressvpn.com/what-is-my-ip')
     # browser.new_page('https://fr.tradingview.com/chart/dOWkigGU/?symbol=BINANCE%3ABTCBUSD')
     browser.new_page('https://uaro.net/')
