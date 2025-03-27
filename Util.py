@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from hashlib import blake2b
 from io import BytesIO
 from pathlib import Path
+from sys import stderr
 from time import sleep
 from typing import Callable, Container
 from urllib.parse import quote, unquote
@@ -15,11 +16,13 @@ import pyperclip
 import sympy
 import yaml
 from cryptography.fernet import Fernet
+from dotenv import load_dotenv
 from pandas import DataFrame, Series
 from sympy import Eq
 from sympy.parsing.sympy_parser import parse_expr
 
-from Files import run_cmd
+from Files import is_file_exists, run_cmd
+from Introspection import frameinfo
 from Times import now
 
 # set Util as a library on Pycharm : Interpreter Paths
@@ -67,6 +70,29 @@ COMMON_CHARS = (string.ascii_lowercase
 # utils ascii chars https://emojipedia.org/fr/
 # ⬛⬜
 # ♛♕♘♞♖♜♝♗
+
+def getenv(key):
+    script_directory = frameinfo(2)["pathname"]
+    dotenv_path = os.path.join(script_directory, '.env')
+    if not is_file_exists(dotenv_path):
+        print(dotenv_path, "does not exist", file=stderr)
+    value = os.getenv(key)
+    if value is None:
+        load_dotenv(dotenv_path=dotenv_path)
+        value = os.getenv(key)
+    return value
+
+
+def image_from_clipboard():
+    try:
+        import PIL.ImageGrab
+        image = PIL.ImageGrab.grabclipboard()
+        if image is not None and hasattr(image, 'size'):
+            return image
+        return None
+    except Exception:
+        return None
+
 
 def print_directory_tree(directory='.', prefix='', max_depth=None, current_depth=0, save_to_file=False):
     path = Path(directory)
@@ -695,5 +721,5 @@ if __name__ == '__main__':
     #                      r"B:\_Documents\Pycharm\Util\util_requirements.txt")
     # print(encrypt_string(""))
     # export_requirements()
-    export_script_requirements(r"A:\Pycharm\Util\Playright_browser.py", r"A:\Pycharm\Util\packages\environment.yml")
+    export_script_requirements(r"/PlayrightBrowser.py", r"A:\Pycharm\Util\packages\environment.yml")
     # conda env create --name temp --file script.yml
