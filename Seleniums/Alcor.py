@@ -39,7 +39,7 @@ def connect(browser: Browser, new_page=True) -> bool:
 
 def verif_n_connect(browser):
     connect_wallet_xpath = "/html/body/div[1]/div/div/nav/div[2]/div/div[2]/button[1]"
-    if browser.get_text(ALCOR_URL, connect_wallet_xpath) == "Connect Wallet":
+    if browser.get_locator_text(ALCOR_URL, connect_wallet_xpath) == "Connect Wallet":
         wallet_connect_xpath = "/html/body/div[1]/div/div/nav/div[2]/div/div[2]/button[1]"
         wallet_connect = browser.get_element(wallet_connect_xpath)
         browser.element_click(wallet_connect)

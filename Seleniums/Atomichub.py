@@ -23,7 +23,7 @@ def transfert_nft(browser, name_to: str, nft_ids: list[int | str]):
             browser.element_click(accept_cooki_btn)
         login_xpath = "/html/body/div/div[2]/div/div/div/div[2]/div[3]/button"
         cloud_wallet_xpath = "/html/body/div[3]/div/div/div[2]/div[1]/div[1]/div/button"
-        login_txt = browser.get_text(url_transfert, login_xpath)
+        login_txt = browser.get_locator_text(url_transfert, login_xpath)
         start = now()
         while login_txt is not None and login_txt == "LOGIN":
             if elapsed_seconds(start) >= 5:
@@ -34,8 +34,8 @@ def transfert_nft(browser, name_to: str, nft_ids: list[int | str]):
                 browser.element_click(cloud_wallet)
                 check_wax_approve(browser)
             sleep(1)
-            login_txt = browser.get_text(url_transfert, login_xpath)
-        login_txt = browser.get_text(url_transfert, login_xpath)
+            login_txt = browser.get_locator_text(url_transfert, login_xpath)
+        login_txt = browser.get_locator_text(url_transfert, login_xpath)
         if login_txt is not None and login_txt == "LOGIN":
             browser.get_element_n_click(login_xpath)
         input_to_xpath_1 = "/html/body/div/div[3]/div/div[2]/div[2]/div[3]/table/tbody/tr[1]/td[2]/div/div/div/input"
@@ -65,7 +65,7 @@ def transfert_nft(browser, name_to: str, nft_ids: list[int | str]):
         transaction_message_xpath_2 = "/html/body/div[4]/div/div/div/div[2]/div[1]"
         start = now()
         while True:
-            transaction_message_text = browser.get_text(url_transfert, [transaction_message_xpath_1, transaction_message_xpath_2])
+            transaction_message_text = browser.get_locator_text(url_transfert, [transaction_message_xpath_1, transaction_message_xpath_2])
             if transaction_message_text is not None and "Transaction Successful!".lower() in transaction_message_text.lower():
                 return True
             elif transaction_message_text and transaction_message_text.lower() == "confirm":

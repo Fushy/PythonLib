@@ -24,12 +24,9 @@ def retry_on_network_disconnect(func):
         while True:
             try:
                 return func(self, *args, **kwargs)
-            except playwright._impl._errors.Error as e:
-                if any(err in str(e) for err in ["net::ERR_INTERNET_DISCONNECTED", "net::ERR_NETWORK_IO_SUSPENDED", "net::ERR_NAME_NOT_RESOLVED"]):
-                    self.print("Network disconnected, retrying in 30 seconds...")
-                    sleep(30)
-                else:
-                    raise
+            except (playwright._impl._errors.Error, playwright._impl._errors.TimeoutError) as e:
+                self.print("Network problem, retrying in 30 seconds...", str(e))
+                sleep(30)
 
     return wrapper
 
@@ -38,6 +35,13 @@ class Point:
     def __init__(self, x, y):
         self.x = x
         self.y = y
+
+
+def get_locator_text(locator, timeout=1000):
+    try:
+        return locator.text_content(timeout=timeout)
+    except playwright._impl._errors.TimeoutError:
+        return ""
 
 
 class PlaywrightBrowser:
@@ -105,13 +109,13 @@ class PlaywrightBrowser:
         return self.pages[-1]
 
     @retry_on_network_disconnect
-    def refresh(self, page_num=None, goto=None, locator=None):
+    def refresh(self, page_num=None, goto=None, locator=None) -> bool:
         page = self.get_working_page() if page_num is None else self.pages[page_num]
         if goto:
             self.goto(tab_index=page_num)
         page.reload()
         if locator:
-            locator.wait_for(state="visible")
+            return wait_element(locator)
 
     def print(self, message):
         print(f"{now()} {message}")
@@ -307,7 +311,7 @@ def scrap_tweets(account):
     return texts
 
 
-def wait_element(locator: Optional[Locator] = None, page: Optional[Page] = None, selector: Optional[str] = None, timeout: int = 30000) -> bool:
+def wait_element(locator: Optional[Locator] = None, page: Optional[Page] = None, selector: Optional[str] = None, timeout: int = 5000) -> bool:
     assert locator or (page and selector)
     try:
         if locator:

@@ -17,7 +17,7 @@ def waxblocks_connection(browser):
             say("change VPN connection")
             return waxblocks_connection(browser)
         connected_xpath = "/html/body/div[1]/div[1]/div[1]/div/div/div/div[6]/div[1]/div"
-        connected_txt = browser.get_text(WAXBLOCKS_URL, connected_xpath)
+        connected_txt = browser.get_locator_text(WAXBLOCKS_URL, connected_xpath)
         if connected_txt and "(active)" in connected_txt:
             return True
         login_button = browser.get_element(login_xpath)

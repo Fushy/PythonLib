@@ -56,7 +56,7 @@ def check_pings():
             if now() < row.end:
                 continue
             else:
-                message(f"Ping: {row.name}, ({str(now(with_ms=False).time())}) >= ({str(row.end.time().replace(microsecond=0))}).")
+                message(f"[PING] {row.name}, ({str(now(with_ms=False).time())}) >= ({str(row.end.time().replace(microsecond=0))}).")
                 time.sleep(2)
 
 
