@@ -520,7 +520,7 @@ def output(*args, log_file=None, end="\n"):
 #     cmd = "pip {}freeze > {}".format(path, output)
 #     run_cmd(cmd)
 
-def export_requirements():
+def export_current_requirements():
     """Creates environment files using pip and conda commands."""
     os.makedirs('packages', exist_ok=True)
 
@@ -528,23 +528,27 @@ def export_requirements():
     output = subprocess.check_output(['pip', 'freeze']).decode('utf-8')
     lines = [l.strip() for l in output.splitlines() if l.strip() and not l.startswith('#')]
     reqs = [l.split('@')[0].strip() if '@' in l else l for l in lines]
+    print("requirements.txt")
     with open('packages/requirements.txt', 'w') as f:
         f.write('\n'.join(reqs) + '\n')
 
     # Generate environment.yml
     try:
         result = subprocess.run(["conda", "env", "export"], capture_output=True, text=True, check=True)
+        print("environment.yml")
         with open("packages/environment.yml", "w") as f:
             f.write('\n'.join(result.stdout.splitlines()[:-1]) + '\n')
     except subprocess.CalledProcessError as e:
         print(f"Error creating environment.yml: {e}")
 
     # Generate Dockerfile
+    print("Dockerfile")
     with open('packages/Dockerfile', 'w') as f:
         f.write(
             'FROM continuumio/miniconda3\nWORKDIR /app\nCOPY environment.yml .\nRUN conda env create -f environment.yml\nSHELL ["conda", "run", "-n", "myenv", "/bin/bash", "-c"]\nCOPY . .\nCMD ["conda", "run", "-n", "myenv", "python", "app.py"]')
 
     # Generate Pipfile
+    print("Pipfile")
     with open('packages/Pipfile', 'w') as f:
         pipfile = '[[source]]\nurl = "https://pypi.org/simple"\nverify_ssl = true\nname = "pypi"\n\n[packages]\n'
         pipfile += ''.join(f'{r.split("==")[0]} = "=={r.split("==")[1]}"\n' if '==' in r else f'{r} = "*"\n' for r in reqs)
@@ -552,10 +556,12 @@ def export_requirements():
         f.write(pipfile)
 
     # Generate setup.py
+    print("setup.py")
     with open('packages/setup.py', 'w') as f:
         f.write(f'from setuptools import setup\nsetup(name="my_package", version="0.1", packages=["my_package"], install_requires={reqs})')
 
     # Generate pyproject.toml
+    print("pyproject.toml")
     with open('packages/pyproject.toml', 'w') as f:
         toml = '[tool.poetry]\nname = "my_package"\nversion = "0.1.0"\nauthors = ["Your Name <you@example.com>"]\n\n[tool.poetry.dependencies]\npython = "^3.8"\n'
         toml += '\n'.join(f'{r.split("==")[0]} = "^{r.split("==")[1]}"' if '==' in r else f'{r} = "*"' for r in reqs)
@@ -720,6 +726,6 @@ if __name__ == '__main__':
     # upgrade_requirements(r"A:\Programmes\Python\Python3.11\python.exe",
     #                      r"B:\_Documents\Pycharm\Util\util_requirements.txt")
     # print(encrypt_string(""))
-    # export_requirements()
-    export_script_requirements(r"/PlayrightBrowser.py", r"A:\Pycharm\Util\packages\environment.yml")
+    export_current_requirements()
+    # export_script_requirements(r"/PlayrightBrowser.py", r"A:\Pycharm\Util\packages\environment.yml")
     # conda env create --name temp --file script.yml
