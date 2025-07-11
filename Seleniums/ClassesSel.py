@@ -435,12 +435,6 @@ class Browser:
             self.goto(save_work_num)
         return None
 
-    def get_class(self, selector: str, find_by: str ="xpath", debug: bool = False) \
-            -> Optional[WebElement]:
-        if debug is None:
-            self.print(("get_class", selector), False)
-        return get_element_class(self.get_element(selector, find_by=find_by))
-
     def get_all_tag_that_contains(self,
                                   web_element,
                                   predicats_on_element: list[Callable] = (lambda x: True,),

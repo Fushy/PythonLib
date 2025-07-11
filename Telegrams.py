@@ -62,7 +62,8 @@ def get_event_loop():
 
 
 def message(msg: str, to: str = None):
-    """Send a Telegram message asynchronously using a background event loop.
+    """ READ
+    Send a Telegram message asynchronously using a background event loop.
     This function schedules the message send but does not wait for completion. If you need to ensure all messages are sent before proceeding or exiting the
     program, you must explicitly wait (e.g., using `threading.Event().wait()` in the main thread) or modify this function to block until the send is complete.
     Without a wait mechanism, the program may exit before messages are fully sent, especially in short-lived scripts."""
@@ -71,18 +72,17 @@ def message(msg: str, to: str = None):
     # Add a safety check to ensure loop is not None
     if loop is None:
         raise RuntimeError("Failed to create event loop")
-
     asyncio.run_coroutine_threadsafe(message_async(msg, to), loop)
 
+def message_block(msg: str, to: str = None):
+    message(msg, to)
+    threading.Event().wait()
 
 def aux():
     message("message aaa")
 
 
 if __name__ == "__main__":
-    profiles_dir = os.getenv("BROWSER_PROFILES")
     aux()
-    aux()
-    run(aux)
-    run(aux)
-    # threading.Event().wait()
+    # run(aux)
+    threading.Event().wait()

@@ -1,3 +1,4 @@
+import threading
 from hashlib import blake2b
 from math import log
 import os
@@ -306,25 +307,28 @@ def ping_is_alive(name):
 
 
 if __name__ == '__main__':
-    if len(sys.argv) <= 1:
-        # print("b", sys.argv)
-        alert("speech")
-        # say("speech")
+    while True:
+        Telegrams.message("notification")
+        sleep(15)
+    # if len(sys.argv) <= 1:
+    #     # print("b", sys.argv)
+    #     alert("speech")
+    #     # say("speech")
     # run(ping_test)
     # run(ping_listener)
     # speech None en 1 False 1 False True False True
-    else:
-        args = sys.argv[-9:]
-        speech = " ".join(sys.argv[1:-9])
-        # print(sys.argv, args, speech)
-        filename = None if args[0] else args[0]
-        lang = args[1]
-        speed = float(args[2])
-        blocking = False if args[3] == "False" else args[3]
-        volume_ratio = float(args[4])
-        just_create_file = False if args[5] == "False" else args[5]
-        save_sound = True if args[6] == "True" else args[6]
-        say(speech, filename, lang, speed, blocking, volume_ratio, just_create_file, save_sound, False, False)
+    # else:
+    #     args = sys.argv[-9:]
+    #     speech = " ".join(sys.argv[1:-9])
+    #     # print(sys.argv, args, speech)
+    #     filename = None if args[0] else args[0]
+    #     lang = args[1]
+    #     speed = float(args[2])
+    #     blocking = False if args[3] == "False" else args[3]
+    #     volume_ratio = float(args[4])
+    #     just_create_file = False if args[5] == "False" else args[5]
+    #     save_sound = True if args[6] == "True" else args[6]
+    #     say(speech, filename, lang, speed, blocking, volume_ratio, just_create_file, save_sound, False, False)
     # _say("This is a long message !", blocking=True)
     # _say("This is a long message !", speed_ratio=1.5, blocking=True)
     # alert("telegram message", after_sleep=0)
