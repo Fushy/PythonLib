@@ -336,7 +336,7 @@ def get_first_deeply_value(obj: object):
     return obj
 
 
-def str_to_hashcode(text: str or list[str], len_hashcode=8, seed=1337, whitelist="") -> list[str] | str:
+def str_to_hashcode(text: str | list[str], len_hashcode=8, seed=1337, whitelist="") -> list[str] | str:
     if whitelist == "":
         whitelist = string.ascii_letters + string.digits
     if is_iter_but_not_str(text):
