@@ -31,12 +31,6 @@ def retry_on_network_disconnect(func):
     return wrapper
 
 
-class Point:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-
-
 def get_locator_text(locator, timeout=1000):
     try:
         return locator.text_content(timeout=timeout)
@@ -117,8 +111,10 @@ class PlaywrightBrowser:
         if locator:
             return wait_element(locator)
 
-    def print(self, message):
-        print(f"{now()} {message}")
+    def print(self, *messages):
+        if self.debug:
+            print(now(), end=" ")
+            print(*messages)
 
     def get_working_page(self) -> Page:
         """Returns the current working page object."""

@@ -7,6 +7,7 @@ import re
 import socket
 from collections import defaultdict, OrderedDict
 from datetime import datetime
+from itertools import chain
 from time import sleep
 from typing import Callable, Iterable, Optional, TypeVar
 
@@ -696,23 +697,114 @@ def excel_to_questions_answers(file_name: str, column_name_questions, column_nam
     return dataframe_to_questions_answers(dataframe, column_name_questions, column_name_answers)
 
 
+# "Conversations":
+# ["Casual"
+#  "Social interaction",
+#  "Debate"
+#  "Opinion exchange",
+#  "Advice and guidance",
+#  "Emotional support"
+#  "Empathy",
+#  "Intellectual"
+#  "Informative discourse",
+#  "Romantic"
+#  "Interpersonal connection",
+#  "Humorous"
+#  "Lighthearted conversation",
+#  "Collaborative problem-solving and brainstorming",
+#  "Narrative"
+#  "Story-sharing (realistic contexts)"],
+# "Knowledge":
+# ["Health"
+#  "Wellness",
+#  "Humanities"
+#  "Social Science",
+#  "Art"
+#  "Design",
+#  "Natural science",
+#  "Tech"
+#  "Engineering",
+#  "Business",
+#  "Religion"
+#  "Spirituality",
+#  "Other"],
+# "Casual": ["Conversations"],
+# "Social interaction": ["Conversations"],
+# "Debate": ["Conversations"],
+# "Opinion exchange": ["Conversations"],
+# "Advice and guidance": ["Conversations"],
+# "Emotional support": ["Conversations"],
+# "Empathy": ["Conversations"],
+# "Intellectual": ["Conversations"],
+# "Informative discourse": ["Conversations"],
+# "Romantic": ["Conversations"],
+# "Interpersonal connection": ["Conversations"],
+# "Humorous": ["Conversations"],
+# "Lighthearted conversation": ["Conversations"],
+# "Collaborative problem-solving and brainstorming": ["Conversations"],
+# "Narrative": ["Conversations"],
+# "Story-sharing (realistic contexts)": ["Conversations"],
+# "Health": ["Knowledge"],
+# "Wellness": ["Knowledge"],
+# "Humanities": ["Knowledge"],
+# "Social Science": ["Knowledge"],
+# "Art": ["Knowledge"],
+# "Design": ["Knowledge"],
+# "Natural science": ["Knowledge"],
+# "Tech": ["Knowledge"],
+# "Engineering": ["Knowledge"],
+# "Business": ["Knowledge"],
+# "Religion": ["Knowledge"],
+# "Spirituality": ["Knowledge"],
+# "Other": ["Knowledge"],
 if __name__ == '__main__':
+    qa_sound_d = {
+        "Conversations":
+        # [  a.capitalize() for a in chain.from_iterable(map(lambda a: a.split(" & "),
+            [
+                "Advice and guidance",
+                "Casual & social interaction",
+                "Collaborative problem-solving & brainstorming",
+                "Debate & opinion exchange",
+                "Emotional support & empathy",
+                "Humorous & lighthearted conversation",
+                "Intellectual & informative discourse",
+                "Narrative & story-sharing (realistic contexts)",
+                "Romantic & interpersonal connection",
+            ],
+        "Knowledge":
+        # [  a.capitalize() for a in chain.from_iterable(map(lambda a: a.split(" & "),
+            [
+                "Art & design",
+                "Business",
+                "Health & wellness",
+                "Humanities & Social Science",
+                "Natural science",
+                "Other",
+                "Religion & Spirituality",
+                "Tech & Engineering"],
+
+    }
+    qa_sound = QuestionsAnswers(qa_sound_d)
+    qa_sound.reverse_dict()
+    qa_sound.training(one_to_validate=False, contain_to_validate=False)
+    # qa_sound.training(one_to_validate=False, contain_to_validate=False, normal_and_reverse=True)
     # main()
     # qa = lyrics_to_questions_answers(song_lyrics, next_line=True, next_part=False, duplicate_line=True)
     # qa.training(ordered=True)
-    qa_tft = QuestionsAnswers(tft_to_questions_answers(pbe=True))
+    # qa_tft = QuestionsAnswers(tft_to_questions_answers(pbe=True))
     # # qa_tft.filter(items_filter=lambda keys, values: "R" in keys)
     # qa_tft.training(one_to_validate=False, contain_to_validate=False)
     # qa_tft.reverse_dict()
-    qa_tft.training(one_to_validate=False, contain_to_validate=False, keys_to_pickup=10)
+    # qa_tft.training(one_to_validate=False, contain_to_validate=False, keys_to_pickup=10)
     # qa_tft.exam(reset_if_wrong=True)
     # qa_tft.exam(reset_if_wrong=False, keys_to_pickup=5)
     # qa_english = file_to_questions_answers("anglais.txt")
     # while True:
     #     qa = excel_to_questions_answers("english-french-tagalog.xlsx", "English", "French")
     #     qa.training(normal_and_reverse=True, keys_to_pickup=5)
-        # qa_english = file_to_questions_answers("anglais.txt")
-        # qa_english.training(keys_to_pickup=3)
+    # qa_english = file_to_questions_answers("anglais.txt")
+    # qa_english.training(keys_to_pickup=3)
 
     # test_questions_answers = {"Question 1": ["Answer 1"],
     #                           "Question 2": ["Answer 2", "Answer 3"],

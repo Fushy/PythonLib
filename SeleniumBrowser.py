@@ -1,9 +1,11 @@
 import re
 from functools import wraps
-from typing import Dict, List, Optional
+from sys import stderr
+from time import sleep
+from typing import Callable, Dict, List, Optional
 
-from selenium import webdriver
-from selenium.common.exceptions import ElementClickInterceptedException, ElementNotInteractableException, MoveTargetOutOfBoundsException, NoSuchElementException, NoSuchWindowException, StaleElementReferenceException, TimeoutException
+import undetected_chromedriver as uc
+from selenium.common.exceptions import ElementClickInterceptedException, ElementNotInteractableException, MoveTargetOutOfBoundsException, NoSuchElementException, NoSuchWindowException, SessionNotCreatedException, StaleElementReferenceException, TimeoutException, WebDriverException
 from selenium.webdriver import ActionChains, Keys
 from selenium.webdriver.common.by import By
 from selenium.webdriver.remote.webelement import WebElement
@@ -11,10 +13,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
 from Classes import Point
+from Paths import SEP
+from Threads import run
 from Times import elapsed_seconds, now
+from Util import getenv
 
 
-def wait_for_element(timeout: int = 5):
+def wait_for_element(timeout=5):
     """Decorator to wait for an element to be present."""
 
     def decorator(func):
@@ -35,7 +40,7 @@ def get_element_text(element: Optional[WebElement], debug=False) -> Optional[str
         return None
     try:
         element_text = element.text
-    except StaleElementReferenceException:
+    except (StaleElementReferenceException, WebDriverException):
         # selenium.common.exceptions.StaleElementReferenceException: Message: stale element reference: element is not attached to the page document
         return None
     if debug:
@@ -46,13 +51,46 @@ def get_element_text(element: Optional[WebElement], debug=False) -> Optional[str
 class SeleniumBrowser:
     def __init__(self, point: Point, headless: bool = True, debug: bool = False, profile: Optional[str] = None):
         """Initialize the Selenium WebDriver with optional debug and profile settings."""
-        options = webdriver.ChromeOptions()
+        from selenium.webdriver.chrome.service import Service
+        if profile:
+            profile_dir = getenv("USER_DATA_DIR")
+            profile = f"{profile_dir}{SEP}Selenium{SEP}{profile}"
+        service = Service(r"A:\Pycharm\Util\Seleniums\Drivers\chromedriver.exe")
+        service = Service(r"A:\Pycharm\Scraping\user-data-dir\Selenium\chromedriver.exe")
+        options = uc.ChromeOptions()
+        options.add_argument("--disable-blink-features=AutomationControlled")
+        options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36")
+        # options.add_argument("start-maximized")
+        # options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        # options.add_experimental_option("useAutomationExtension", False)
+
+        # Handle headless mode
         if headless:
             options.add_argument("--headless")
+            options.add_argument("--disable-gpu")  # Often required for headless
+
         if profile:
-            options.add_argument(f"user-data-dir={profile}")
-        self.driver = webdriver.Chrome(options=options)
-        self.driver.set_window_position(point.x, point.y)
+            options.add_argument(f"--user-data-dir={profile}")
+        options.add_argument(f"--window-position={point.x},{point.y}")
+        try:
+            self.driver = uc.Chrome(options=options, service=service)
+        except SessionNotCreatedException as e:
+            if "session not created: cannot connect to chrome" in e.msg:
+                # https://chromedriver.chromium.org/downloads "
+                print(e, r"SessionNotCreatedException\nDownload chromedriver & update main driver\n"
+                         r"https://googlechromelabs.github.io/chrome-for-testing/ & chrome://settings/help & A:\Documents\Dev\Python\Util\Seleniums\Drivers",
+                      file=stderr)
+            exit()
+
+        # stealth(self.driver,
+        #         languages=["en-US", "en"],
+        #         vendor="Google Inc.",
+        #         platform="Win32",
+        #         webgl_vendor="Intel Inc.",
+        #         renderer="Intel Iris OpenGL Engine",
+        #         fix_hairline=True)
+
+        self.driver.set_window_size(1920, 1080)
         self.debug = debug
         self.print(f"SeleniumBrowser initialized at {point.x},{point.y}, headless={headless}, profile={profile}")
 
@@ -62,20 +100,40 @@ class SeleniumBrowser:
 
     def __exit__(self, exc_type, exc_value, traceback):
         """Exit the context, automatically closing the browser."""
-        self.close()
+        try:
+            run(lambda: self.close())
+            self.driver.quit()
+        except Exception:
+            pass
+
+    def __del__(self):
+        """Cleanup method to close the browser when the object is destroyed."""
+        try:
+            if self.driver:
+                run(lambda: self.driver.quit())
+        except Exception:
+            pass
 
     def load(self, url: str):
         """Load a URL in the browser."""
         self.driver.get(url)
         self.print(f"Loaded URL: {url}")
 
-    def new_page(self, url: Optional[str] = None):
+    def new_page(self, url: Optional[str] = None, new_tab=True):
         """Open a new tab and optionally load a URL."""
-        self.driver.execute_script("window.open('');")
+        current_page = len(self.driver.window_handles)
+        while new_tab and current_page == len(self.driver.window_handles):
+            self.driver.switch_to.new_window('tab')
+            sleep(0.1)
         self.driver.switch_to.window(self.driver.window_handles[-1])
         if url:
             self.load(url)
         self.print(f"New page opened, total tabs: {len(self.driver.window_handles)}")
+
+    def close_page(self):
+        self.driver.close()
+        self.driver.switch_to.window(self.driver.window_handles[-1])
+        self.print(f"Page closed, total tabs: {len(self.driver.window_handles)}")
 
     def get_working_page(self):
         """Get the current WebDriver instance."""
@@ -91,18 +149,42 @@ class SeleniumBrowser:
 
     def print(self, *messages):
         if self.debug:
-            print(now(), end=" ")
-            print(*messages)
+            print(now(), *messages)
+            # print(now(), end=" ")
+            # print(*messages)
 
     def get_all_attributes(self, element: WebElement) -> Dict[str, str]:
         """Get all attributes of a WebElement."""
-        return self.driver.execute_script(
-            "var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) "
-            "{ items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;",
-            element
-        )
+        if element:
+            return self.driver.execute_script(
+                "var items = {}; for (index = 0; index < arguments[0].attributes.length; ++index) "
+                "{ items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value }; return items;",
+                element
+            )
 
-    @wait_for_element(timeout=1)
+    def wait_element(self, fun: Callable, appear=True, refresh: int = None, leave: int = 60):
+        """ Attend qu'une condition soit satisfaite (apparition ou disparition d'éléments) """
+        self.print("wait_element", fun, appear, refresh, leave)
+        start_refresh, start_leave = now(), now()
+        condition_satisfy = False
+        while not condition_satisfy:
+            result = fun()
+            condition_satisfy = result is not None
+            if appear and condition_satisfy:
+                return result
+            elif not appear and condition_satisfy:
+                return True
+            self.print(fun.__name__ if hasattr(fun, "__name__") else "function", "appear =", appear)
+            if refresh is not None and (now() - start_refresh).total_seconds() >= refresh:
+                if hasattr(self, "refresh"):
+                    self.refresh()
+                    sleep(1)
+                    start_refresh = now()
+            self.print("r", refresh, (now() - start_refresh).total_seconds(), "l", leave, (now() - start_leave).total_seconds())
+            if leave is not None and (now() - start_leave).total_seconds() >= leave:
+                return False
+
+    @wait_for_element(timeout=0.1)
     def get_element(self, selector: str, element=None) -> WebElement:
         """Get the first element matching a CSS selector."""
         base = element if element else self.get_working_page()
@@ -116,6 +198,8 @@ class SeleniumBrowser:
 
     def get_element_class(self, class_name: str, element=None) -> WebElement:
         """Get the first element by class name (supports multiple classes)."""
+
+        self.driver.switch_to.window(self.driver.window_handles[-1])
         selector = "".join(f".{cls}" for cls in class_name.split())
         self.print(f"Searching for element by class: {selector}")
         return self.get_element(selector, element)
@@ -152,8 +236,11 @@ class SeleniumBrowser:
         base = element if element else self.get_working_page()
         return base.find_element(By.XPATH, xpath)
 
-    def get_element_attributes(self, tag: str, attributes: str, element=None) -> WebElement:
-        """Get the first element matching the tag name and attributes from a string."""
+    def get_element_attributes(self, tag: str, attributes: str, exists: list = None, element=None) -> WebElement:
+        """Get the first element matching the tag name and attributes from a string.
+        attributes = 'disabled="" type="button" aria-label="Envoyer le message"'
+        exists = optional list of attributes that must exist on the element (e.g. ["aria-label"])
+        """
         attr_pattern = r'(\w+(?:-\w+)*)\s*=\s*"(.*?)"'
         attributes_dict = dict(re.findall(attr_pattern, attributes.strip()))
         if not attributes_dict:
@@ -166,12 +253,22 @@ class SeleniumBrowser:
             else:
                 selector += f"[{attr}='{value}']"
 
+        # Add existence checks for required attributes
+        if exists:
+            for attr in exists:
+                if attr not in attributes_dict:
+                    # Add attribute existence check without specifying a value
+                    selector += f"[{attr}]"
+
         self.print(f"Searching for selector: {selector}")
         try:
             return self.get_element(selector, element)
         except TimeoutException:
             self.print(f"Element with selector '{selector}' not found after 1 second")
             raise
+
+    def get_direct_children(self, element) -> list:
+        return self.driver.execute_script("return arguments[0].children;", element)
 
     def get_elements(self, element: Optional[WebElement] = None, tag_name: Optional[str] = None,
                      id_: Optional[str] = None, text: Optional[str] = None, xpath: Optional[str] = None,
@@ -270,7 +367,7 @@ class SeleniumBrowser:
 
     def element_click(self, element: Optional[WebElement], actionchain=False, debug=False, leave=15) -> bool:
         self.print("element_click", element, type(element))
-        assert type(element) is WebElement or element is None
+        assert "WebElement" in str(type(element)) or element is None
         if element is None:
             if debug:
                 self.print("element_click_element_is_None")
@@ -368,13 +465,18 @@ class SeleniumBrowser:
         self.driver.quit()
         self.print("Browser closed")
 
+    def move(self, point: Point | int, y=None):
+        """Move the browser window to the specified screen coordinates."""
+        if y is not None:
+            point = Point(point, y)
+        self.driver.set_window_position(point.x, point.y)
 
-# Example usage
+
 if __name__ == "__main__":
     browser = SeleniumBrowser(point=Point(0, 0), headless=False)
     try:
         browser.load("https://example.com")  # Replace with a page containing <input type="checkbox">
-        checkbox = browser.get_element_by_attributes("input", 'type="checkbox"')
+        checkbox = browser.get_element_attributes("input", 'type="checkbox"')
         if checkbox:
             print(f"Checkbox type: {checkbox.get_attribute('type')}")
             print(f"Attributes: {browser.get_all_attributes(checkbox)}")

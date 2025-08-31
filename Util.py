@@ -13,6 +13,7 @@ from urllib.parse import quote, unquote
 
 import pandas as pd
 import pyperclip
+import requests
 import sympy
 import yaml
 from cryptography.fernet import Fernet
@@ -22,6 +23,7 @@ from sympy import Eq
 from sympy.parsing.sympy_parser import parse_expr
 
 from Files import is_file_exists, run_cmd
+from Html_stable import get_html_bs4
 from Introspection import frameinfo
 from Times import now
 
@@ -70,6 +72,17 @@ COMMON_CHARS = (string.ascii_lowercase
 # utils ascii chars https://emojipedia.org/fr/
 # ⬛⬜
 # ♛♕♘♞♖♜♝♗
+
+def download_gdoc_to_excel(gdoc_spreadsheets_url, start_line_index=3, start_header=2, max_line=1000):
+    url = gdoc_spreadsheets_url
+    soup = get_html_bs4(url)
+    headers = [a.text for a in soup.find_all('tr')[start_header]][1:]
+    print("headers", headers)
+    lines = soup.find_all('tr')[start_line_index:max_line]
+    datas = [[line[i].text for i in range(len(line))] for line in [line.find_all("td") for line in lines]]
+    df = pd.DataFrame(datas, columns=headers)
+    # select page using: df[:df["CODING_LANGUAGE"].isna().idxmax()]
+    return df
 
 def getenv(key):
     script_directory = frameinfo(2)["pathname"]
@@ -545,7 +558,7 @@ def export_current_requirements():
     print("Dockerfile")
     with open('packages/Dockerfile', 'w') as f:
         f.write(
-            'FROM continuumio/miniconda3\nWORKDIR /app\nCOPY environment.yml .\nRUN conda env create -f environment.yml\nSHELL ["conda", "run", "-n", "myenv", "/bin/bash", "-c"]\nCOPY . .\nCMD ["conda", "run", "-n", "myenv", "python", "app.py"]')
+            'FROM continuumio/miniconda3\nWORKDIR /app_windows\nCOPY environment.yml .\nRUN conda env create -f environment.yml\nSHELL ["conda", "run", "-n", "myenv", "/bin/bash", "-c"]\nCOPY . .\nCMD ["conda", "run", "-n", "myenv", "python", "app_windows.py"]')
 
     # Generate Pipfile
     print("Pipfile")
@@ -723,9 +736,9 @@ if __name__ == '__main__':
     #                     r"B:\_Documents\Pycharm\Util\util_requirements.txt")
     # install_requirements(r"A:\Programmes\Python\Python3.11\python.exe",
     #                      r"B:\_Documents\Pycharm\Util\util_requirements.txt")
-    # upgrade_requirements(r"A:\Programmes\Python\Python3.11\python.exe",
-    #                      r"B:\_Documents\Pycharm\Util\util_requirements.txt")
+    upgrade_requirements(r"A:\Programmes\Python\Python3.11\python.exe",
+                         r"B:\_Documents\Pycharm\Util\util_requirements.txt")
     # print(encrypt_string(""))
-    export_current_requirements()
+    # export_current_requirements()
     # export_script_requirements(r"/PlayrightBrowser.py", r"A:\Pycharm\Util\packages\environment.yml")
     # conda env create --name temp --file script.yml

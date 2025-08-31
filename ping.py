@@ -60,10 +60,10 @@ def check_pings():
                 time.sleep(2)
 
 
+# ping(end=timedelta(minutes=2), start=False)
 if __name__ == "__main__":
     # db.drop_tables([Ping])
     # db.create_tables([Ping], safe=True)
-    # ping(end=timedelta(minutes=2), start=False)
     while True:
         check_pings()
         time.sleep(10)
