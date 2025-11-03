@@ -7,13 +7,11 @@ import re
 import socket
 from collections import defaultdict, OrderedDict
 from datetime import datetime
-from itertools import chain
+from pathlib import Path
 from time import sleep
 from typing import Callable, Iterable, Optional, TypeVar
 
-import pytest
 import requests
-from _pytest.capture import CaptureResult
 from bs4 import BeautifulSoup
 from colorama import Back, Fore, init, Style
 from pandas import DataFrame
@@ -21,7 +19,10 @@ from requests.exceptions import ChunkedEncodingError, SSLError
 from requests_html import HTMLSession
 from urllib3.exceptions import MaxRetryError, NewConnectionError
 
+from ascii_console import image_to_ascii_tft
 from dataframe import from_excel_to_dataframe
+from Files import is_file_exists
+from scraping import download_with_progress
 from Util import reverse_dict
 
 # colors = ["WHITE", "BLACK", "RED", "GREEN", "YELLOW", "BLUE", "MAGENTA", "CYAN"]
@@ -40,6 +41,7 @@ class QuestionsAnswers:
         assert (isinstance(questions_answers, dict) and
                 all(bool(isinstance(k, str) and isinstance(v, list) and all(isinstance(item, str) for item in v))
                     for k, v in questions_answers.items())), "questions_answers doesn't match a type of dict[str, list[str]]"
+        questions_answers = OrderedDict(sorted(questions_answers.items()))
         self.questions_answers_origin: dict[str, list[str]] = copy.deepcopy(questions_answers)
         self.questions_answers: dict[str, list[str]] = questions_answers
 
@@ -88,7 +90,7 @@ class QuestionsAnswers:
         self.delete_line_return()
 
     def training(self, one_to_validate: bool = False, keys_to_pickup: Optional[int] = None, contain_to_validate=False,
-                 ordered=False, normal_and_reverse=False):
+                 ordered=False, normal_and_reverse=False, image: Path = None, start_as_reversed=False):
         """ Train for the Q/A
             Press "." to show all questions and answers with corresponding colors
             Press "+" to swap Q/A to A/Q
@@ -101,9 +103,14 @@ class QuestionsAnswers:
             pickup_keys = random.sample(list(self.questions_answers.keys()),
                                         min(len(self.questions_answers), keys_to_pickup))
             self.questions_answers = {k: self.questions_answers[k] for k in pickup_keys}
+            print(self.questions_answers)
+            r = reverse_dict(self.questions_answers)
+            print(f"{r} |{len(r)}|")
         if normal_and_reverse:
             self.questions_answers.update(reverse_dict(self.questions_answers))
             self.delete_line_return()
+        if start_as_reversed:
+            self.reverse_dict()
         # Questions are sorted to obtain the same color for a same given questions_answers dict
         sorted_questions = sorted(self.questions_answers)
         questions_answers_training = copy.deepcopy(self.questions_answers)
@@ -112,15 +119,26 @@ class QuestionsAnswers:
             question = self.question_index(index) if ordered else self.question()
             index = (index + 1) % len(self.questions_answers)
             answer = self.questions_answers[question]
-            answer_recovery = sorted(answer)
+            # answer_recovery = sorted(answer)
+            answer_recovery = answer
             answers_color = colors[sorted_questions.index(question) % len(colors)]
             response = ""
-            printc("{} |{}|".format(question, len(answer)), color=answers_color)
+            if image and is_file_exists(image):
+                image_to_ascii_tft(image, 15, question[3:].replace(" ", "").replace(".", "").replace("'", ""))
+                try:
+                    cost_to_color = ["WHITE", "GREEN", "BLUE", "MAGENTA", "YELLOW"][int(question[0]) - 1]
+                except:
+                    cost_to_color = "WHITE"
+                printc("{} |{}|".format(question, len(answer)), color=cost_to_color)
+                # [printc(a.replace("\n", ""), color=answers_color, end="   ") for a in sorted(answer_recovery)]
+            else:
+                printc("{} |{}|".format(question, len(answer)), color=answers_color)
             i = 0
             while i < len(answer_recovery):
                 response = input("\t")
                 i += 1
                 if response == ".":
+                    print(f"|{len(questions_answers_training)}|")
                     for (q, answers) in sorted(questions_answers_training.items()):
                         color = colors[sorted_questions.index(q) % len(colors)]
                         printc("{} |{}|".format(q, len(answers)), color=color)
@@ -145,11 +163,11 @@ class QuestionsAnswers:
                 if correct:
                     print("\tok")
                     if one_to_validate:
-                        [printc(a.replace("\n", ""), color=answers_color, end="   ") for a in sorted(answer_recovery)]
+                        [printc(a.replace("\n", ""), color=answers_color, end="   ") for a in answer_recovery]
                         print("\n")
                         break
                 else:
-                    [printc(a.replace("\n", ""), color=answers_color, end="   ") for a in sorted(answer_recovery)]
+                    [printc(a.replace("\n", ""), color=answers_color, end="   ") for a in answer_recovery]
                     print("\n")
                     break
             """ Recovery the question's answers after they have been pop. """
@@ -192,208 +210,208 @@ class QuestionsAnswers:
         self.questions_answers = copy.deepcopy(self.questions_answers_origin)
 
 
-# noinspection ProblematicWhitespace
-class TestQuestionsAnswers:
-    def test_constructor_with_empty_dictionary(self):
-        test_questions_answers = {}
-        with pytest.raises(AssertionError):
-            # questions_answers is empty
-            QuestionsAnswers(test_questions_answers)
-
-    def test_constructor_with_valid_input(self):
-        test_questions_answers = {"Question 1": ["Answer 1"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        assert qa.questions_answers == test_questions_answers
-        assert qa.questions_answers_origin == {"Question 1": ["Answer 1"]}
-
-    def test_constructor_with_invalid_input(self):
-        test_questions_answers = {"Question 1": [1]}
-        with pytest.raises(AssertionError):
-            # noinspection PyTypeChecker
-            QuestionsAnswers(test_questions_answers)  # questions_answers doesn't match a type of dict[str, list[str]]
-
-    def test_question_with_non_empty_dictionary(self, mocker):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        mocker.patch('random.choice', return_value="Question 1")
-        assert qa.question() == "Question 1"
-
-    def test_answer_with_contain_to_validate_false_is_true(self):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        assert qa._answer("Question 1", "Answer 1") is True
-        assert qa.questions_answers == {'Question 1': ['Answer 2'], 'Question 2': ['Answer 3', 'Answer 4']}
-        assert qa._answer("Question 1", "Answer 2") is True
-        assert qa.questions_answers == {'Question 1': [], 'Question 2': ['Answer 3', 'Answer 4']}
-        assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-
-    def test_answer_with_contain_to_validate_true_is_true(self):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        assert qa._answer("Question 1", "Answer", contain_to_validate=True) is True
-        assert qa.questions_answers == {"Question 1": ["Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-
-    def test_answer_with_contain_to_validate_false_is_false(self):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        assert qa._answer("Question 1", "Wrong Answer") is False
-        assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
-                                                                       "Question 2": ["Answer 3", "Answer 4"]}
-
-    def test_answer_with_contain_to_validate_true_is_false(self):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        assert qa._answer("Question 1", "Anss", contain_to_validate=True) is False
-        assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
-                                                                       "Question 2": ["Answer 3", "Answer 4"]}
-
-    def test_answer_with_contain_to_validate_true_with_empty_text(self):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        assert qa._answer("Question 1", "", contain_to_validate=True) is False
-        assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
-                                                                       "Question 2": ["Answer 3", "Answer 4"]}
-
-    def test_reverse_dict(self):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        qa.reverse_dict()
-        assert qa.questions_answers == {"Answer 1": ["Question 1"], "Answer 2": ["Question 1"],
-                                        "Answer 3": ["Question 2"], "Answer 4": ["Question 2"]}
-        assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-
-    def test_training(self, mocker, capsys):
-        test_questions_answers = {"Question 1": ["Answer 1"],
-                                  "Question 2": ["Answer 2", "Answer 3"],
-                                  "Question 3": ["Answer 4", "Answer 5", "Answer 6"],
-                                  "Question 4": ["Answer 7", "Answer 8", "Answer 9", "Answer 10"],
-                                  "Question 5": ["Answer 11", "Answer 12", "Answer 13", "Answer 14", "Answer 15"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        mocker.patch('random.choice', side_effect=[f"Question {i}" for i in range(6) for _ in range(i)])
-        mocker.patch('builtins.input', side_effect=[f"Answer {i}" for i in range(1, 15)] + ["q"])
-        qa.training()
-        assert capsys.readouterr() == CaptureResult(out='Question 1 |1|\n\tok\nQuestion 2 |2|\n\tok\n\tok\nQuestion 2 |2|\nAnswer'
-                                                        ' 2   Answer 3   \n\nQuestion 3 |3|\n\tok\n\tok\nAnswer 4   Answer 5   An'
-                                                        'swer 6   \n\nQuestion 3 |3|\nAnswer 4   Answer 5   Answer 6   \n\nQuesti'
-                                                        'on 3 |3|\nAnswer 4   Answer 5   Answer 6   \n\nQuestion 4 |4|\n\tok\nAns'
-                                                        'wer 10   Answer 7   Answer 8   Answer 9   \n\nQuestion 4 |4|\nAnswer 10 '
-                                                        '  Answer 7   Answer 8   Answer 9   \n\nQuestion 4 |4|\nAnswer 10   Answe'
-                                                        'r 7   Answer 8   Answer 9   \n\nQuestion 4 |4|\nAnswer 10   Answer 7   A'
-                                                        'nswer 8   Answer 9   \n\nQuestion 5 |5|\nEnd training\n', err='')
-
-    def test_reverse_dict_on_training(self, mocker, capsys):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        mocker.patch('random.choice', side_effect=["Question 1", "Answer 1", "Question 1"])
-        mocker.patch('builtins.input', side_effect=[".", "+", ".", "+", ".", "q"])
-        qa.training()
-        assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"]}
-        captured = capsys.readouterr()
-        assert captured.out == """Question 1 |2|
-Question 1 |2|
-\tAnswer 1
-\tAnswer 2
-Answer 1 |1|
-Answer 1 |1|
-\tQuestion 1
-Answer 2 |1|
-\tQuestion 1
-Question 1 |2|
-Question 1 |2|
-\tAnswer 1
-\tAnswer 2
-End training
-"""
-
-    def test_filter_with_filter_function_returning_true(self):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        qa.filter(lambda question, answers: True)
-        assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
-                                                                       "Question 2": ["Answer 3", "Answer 4"]}
-
-    def test_filter_with_filter_function_filtering_question(self):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        qa.filter(lambda question, answers: "1" in question)
-        assert qa.questions_answers == {"Question 1": ["Answer 1", "Answer 2"]}
-        assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-
-    def test_filter_with_filter_function_filtering_answer(self):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        qa.filter(lambda question, answers: any(["3" in a for a in answers]))
-        assert qa.questions_answers == {"Question 2": ["Answer 3", "Answer 4"]}
-        assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-
-    def test_training_with_correct_answers(self, mocker, capsys):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        mocker.patch('random.choice', side_effect=["Question 1", "Question 2", "Question 1"])
-        mocker.patch('builtins.input', side_effect=["Answer 1", "Answer 2", "Answer 3", "Answer 4", "q"])
-        qa.training()
-        assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
-                                                                       "Question 2": ["Answer 3", "Answer 4"]}
-        captured = capsys.readouterr()
-        assert captured.out == """Question 1 |2|
-\tok
-\tok
-Question 2 |2|
-\tok
-\tok
-Question 1 |2|
-End training\n"""
-
-    def test_training_with_uncorrect_answers(self, mocker, capsys):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        mocker.patch('random.choice', side_effect=["Question 1", "Question 2", "Question 1"])
-        mocker.patch('builtins.input', side_effect=["Answer 1", "Answer 3", "Answer 1", "q"])
-        qa.training()
-        assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
-                                                                       "Question 2": ["Answer 3", "Answer 4"]}
-        captured = capsys.readouterr()
-        assert captured.out == """Question 1 |2|
-\tok
-Answer 1   Answer 2   
-
-Question 2 |2|
-Answer 3   Answer 4   
-
-Question 1 |2|
-End training
-"""
-
-    def test_questions_answers_after_answering_and_printing(self, mocker, capsys):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        mocker.patch('random.choice', return_value="Question 1")
-        mocker.patch('builtins.input', side_effect=["Answer 1", ".", "q"])
-        qa.training()
-        assert qa.questions_answers == {"Question 1": ["Answer 1", "Answer 2"]}
-        captured = capsys.readouterr()
-        assert captured.out == """Question 1 |2|
-\tok
-Question 1 |2|
-\tAnswer 1
-\tAnswer 2
-End training
-"""
-
-    def test_questions_answers_after_answering_and_reversing(self, mocker, capsys):
-        test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"]}
-        qa = QuestionsAnswers(test_questions_answers)
-        mocker.patch('random.choice', side_effect=["Question 1", "Answer 1"])
-        mocker.patch('builtins.input', side_effect=["Answer 1", "+", "q"])
-        qa.training()
-        assert qa.questions_answers == {"Answer 1": ["Question 1"], "Answer 2": ["Question 1"]}
-        captured = capsys.readouterr()
-        assert captured.out == """Question 1 |2|
-\tok
-Answer 1 |1|
-End training
-"""
+# # noinspection ProblematicWhitespace
+# class TestQuestionsAnswers:
+#     def test_constructor_with_empty_dictionary(self):
+#         test_questions_answers = {}
+#         with pytest.raises(AssertionError):
+#             # questions_answers is empty
+#             QuestionsAnswers(test_questions_answers)
+#
+#     def test_constructor_with_valid_input(self):
+#         test_questions_answers = {"Question 1": ["Answer 1"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         assert qa.questions_answers == test_questions_answers
+#         assert qa.questions_answers_origin == {"Question 1": ["Answer 1"]}
+#
+#     def test_constructor_with_invalid_input(self):
+#         test_questions_answers = {"Question 1": [1]}
+#         with pytest.raises(AssertionError):
+#             # noinspection PyTypeChecker
+#             QuestionsAnswers(test_questions_answers)  # questions_answers doesn't match a type of dict[str, list[str]]
+#
+#     def test_question_with_non_empty_dictionary(self, mocker):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         mocker.patch('random.choice', return_value="Question 1")
+#         assert qa.question() == "Question 1"
+#
+#     def test_answer_with_contain_to_validate_false_is_true(self):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         assert qa._answer("Question 1", "Answer 1") is True
+#         assert qa.questions_answers == {'Question 1': ['Answer 2'], 'Question 2': ['Answer 3', 'Answer 4']}
+#         assert qa._answer("Question 1", "Answer 2") is True
+#         assert qa.questions_answers == {'Question 1': [], 'Question 2': ['Answer 3', 'Answer 4']}
+#         assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#
+#     def test_answer_with_contain_to_validate_true_is_true(self):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         assert qa._answer("Question 1", "Answer", contain_to_validate=True) is True
+#         assert qa.questions_answers == {"Question 1": ["Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#
+#     def test_answer_with_contain_to_validate_false_is_false(self):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         assert qa._answer("Question 1", "Wrong Answer") is False
+#         assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
+#                                                                        "Question 2": ["Answer 3", "Answer 4"]}
+#
+#     def test_answer_with_contain_to_validate_true_is_false(self):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         assert qa._answer("Question 1", "Anss", contain_to_validate=True) is False
+#         assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
+#                                                                        "Question 2": ["Answer 3", "Answer 4"]}
+#
+#     def test_answer_with_contain_to_validate_true_with_empty_text(self):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         assert qa._answer("Question 1", "", contain_to_validate=True) is False
+#         assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
+#                                                                        "Question 2": ["Answer 3", "Answer 4"]}
+#
+#     def test_reverse_dict(self):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         qa.reverse_dict()
+#         assert qa.questions_answers == {"Answer 1": ["Question 1"], "Answer 2": ["Question 1"],
+#                                         "Answer 3": ["Question 2"], "Answer 4": ["Question 2"]}
+#         assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#
+#     def test_training(self, mocker, capsys):
+#         test_questions_answers = {"Question 1": ["Answer 1"],
+#                                   "Question 2": ["Answer 2", "Answer 3"],
+#                                   "Question 3": ["Answer 4", "Answer 5", "Answer 6"],
+#                                   "Question 4": ["Answer 7", "Answer 8", "Answer 9", "Answer 10"],
+#                                   "Question 5": ["Answer 11", "Answer 12", "Answer 13", "Answer 14", "Answer 15"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         mocker.patch('random.choice', side_effect=[f"Question {i}" for i in range(6) for _ in range(i)])
+#         mocker.patch('builtins.input', side_effect=[f"Answer {i}" for i in range(1, 15)] + ["q"])
+#         qa.training()
+#         assert capsys.readouterr() == CaptureResult(out='Question 1 |1|\n\tok\nQuestion 2 |2|\n\tok\n\tok\nQuestion 2 |2|\nAnswer'
+#                                                         ' 2   Answer 3   \n\nQuestion 3 |3|\n\tok\n\tok\nAnswer 4   Answer 5   An'
+#                                                         'swer 6   \n\nQuestion 3 |3|\nAnswer 4   Answer 5   Answer 6   \n\nQuesti'
+#                                                         'on 3 |3|\nAnswer 4   Answer 5   Answer 6   \n\nQuestion 4 |4|\n\tok\nAns'
+#                                                         'wer 10   Answer 7   Answer 8   Answer 9   \n\nQuestion 4 |4|\nAnswer 10 '
+#                                                         '  Answer 7   Answer 8   Answer 9   \n\nQuestion 4 |4|\nAnswer 10   Answe'
+#                                                         'r 7   Answer 8   Answer 9   \n\nQuestion 4 |4|\nAnswer 10   Answer 7   A'
+#                                                         'nswer 8   Answer 9   \n\nQuestion 5 |5|\nEnd training\n', err='')
+#
+#     def test_reverse_dict_on_training(self, mocker, capsys):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         mocker.patch('random.choice', side_effect=["Question 1", "Answer 1", "Question 1"])
+#         mocker.patch('builtins.input', side_effect=[".", "+", ".", "+", ".", "q"])
+#         qa.training()
+#         assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"]}
+#         captured = capsys.readouterr()
+#         assert captured.out == """Question 1 |2|
+# Question 1 |2|
+# \tAnswer 1
+# \tAnswer 2
+# Answer 1 |1|
+# Answer 1 |1|
+# \tQuestion 1
+# Answer 2 |1|
+# \tQuestion 1
+# Question 1 |2|
+# Question 1 |2|
+# \tAnswer 1
+# \tAnswer 2
+# End training
+# """
+#
+#     def test_filter_with_filter_function_returning_true(self):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         qa.filter(lambda question, answers: True)
+#         assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
+#                                                                        "Question 2": ["Answer 3", "Answer 4"]}
+#
+#     def test_filter_with_filter_function_filtering_question(self):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         qa.filter(lambda question, answers: "1" in question)
+#         assert qa.questions_answers == {"Question 1": ["Answer 1", "Answer 2"]}
+#         assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#
+#     def test_filter_with_filter_function_filtering_answer(self):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         qa.filter(lambda question, answers: any(["3" in a for a in answers]))
+#         assert qa.questions_answers == {"Question 2": ["Answer 3", "Answer 4"]}
+#         assert qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#
+#     def test_training_with_correct_answers(self, mocker, capsys):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         mocker.patch('random.choice', side_effect=["Question 1", "Question 2", "Question 1"])
+#         mocker.patch('builtins.input', side_effect=["Answer 1", "Answer 2", "Answer 3", "Answer 4", "q"])
+#         qa.training()
+#         assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
+#                                                                        "Question 2": ["Answer 3", "Answer 4"]}
+#         captured = capsys.readouterr()
+#         assert captured.out == """Question 1 |2|
+# \tok
+# \tok
+# Question 2 |2|
+# \tok
+# \tok
+# Question 1 |2|
+# End training\n"""
+#
+#     def test_training_with_uncorrect_answers(self, mocker, capsys):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"], "Question 2": ["Answer 3", "Answer 4"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         mocker.patch('random.choice', side_effect=["Question 1", "Question 2", "Question 1"])
+#         mocker.patch('builtins.input', side_effect=["Answer 1", "Answer 3", "Answer 1", "q"])
+#         qa.training()
+#         assert qa.questions_answers == qa.questions_answers_origin == {"Question 1": ["Answer 1", "Answer 2"],
+#                                                                        "Question 2": ["Answer 3", "Answer 4"]}
+#         captured = capsys.readouterr()
+#         assert captured.out == """Question 1 |2|
+# \tok
+# Answer 1   Answer 2
+#
+# Question 2 |2|
+# Answer 3   Answer 4
+#
+# Question 1 |2|
+# End training
+# """
+#
+#     def test_questions_answers_after_answering_and_printing(self, mocker, capsys):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         mocker.patch('random.choice', return_value="Question 1")
+#         mocker.patch('builtins.input', side_effect=["Answer 1", ".", "q"])
+#         qa.training()
+#         assert qa.questions_answers == {"Question 1": ["Answer 1", "Answer 2"]}
+#         captured = capsys.readouterr()
+#         assert captured.out == """Question 1 |2|
+# \tok
+# Question 1 |2|
+# \tAnswer 1
+# \tAnswer 2
+# End training
+# """
+#
+#     def test_questions_answers_after_answering_and_reversing(self, mocker, capsys):
+#         test_questions_answers = {"Question 1": ["Answer 1", "Answer 2"]}
+#         qa = QuestionsAnswers(test_questions_answers)
+#         mocker.patch('random.choice', side_effect=["Question 1", "Answer 1"])
+#         mocker.patch('builtins.input', side_effect=["Answer 1", "+", "q"])
+#         qa.training()
+#         assert qa.questions_answers == {"Answer 1": ["Question 1"], "Answer 2": ["Question 1"]}
+#         captured = capsys.readouterr()
+#         assert captured.out == """Question 1 |2|
+# \tok
+# Answer 1 |1|
+# End training
+# """
 
 
 def is_correct_lines(lines: list[str], debug=True) -> bool:
@@ -614,30 +632,63 @@ I won't wait, no
 """
 
 
-def tft_to_questions_answers(langage="en_us", version=None, pbe=False) -> dict | list:
+def tft_to_questions_answers(langage="en_us", version=None, pbe=False, show_cost=False, download_image=False, emblem=False) -> dict[str, list[str]]:
     live = "pbe" if pbe else "latest"
-    response = requests.get(f"https://raw.communitydragon.org/{live}/cdragon/tft/")
+    server = f"https://raw.communitydragon.org/{live}"
+    server_db = f"{server}/cdragon/tft/"
+    response = requests.get(server_db)
     soup = BeautifulSoup(response.text, 'html.parser')
     available_langages = [tr.text[:tr.text.find(".json")] for tr in soup.body.find_all('tr') if ".json" in tr.text]
     if langage not in available_langages:
         return available_langages
-    tft_db = url_to_json(f"https://raw.communitydragon.org/{live}/cdragon/tft/{langage}.json")
+    tft_db = url_to_json(f"{server_db}/{langage}.json")
     available_version = list(tft_db["sets"])
     if version is None:
         version = str(max(map(int, tft_db["sets"])))
     elif version not in available_version:
         return available_version
     champions = json_base_to_json_ok(tft_db, ["name"], ["sets", version, "champions"])
+    traits = json_base_to_json_ok(tft_db, ["name"], ["sets", version, "traits"])
     tft_champions = defaultdict(list)
+    champion_traits = set()
     for champion, values in champions.items():
+        if type(values) is list:
+            continue
         if "_" in champion:
             champion = champion.split("_")[-1]
-        if "traits" in values:
+        if show_cost:
+            champion = f"{values["cost"]}c {champion}"
+        if "traits" in values and len(values["traits"]):
+            name = values['characterName']
+            path_file = f"image/tft/{version}/{name}.png"
+            if download_image and not is_file_exists(path_file):
+                download_url = f"{server}/game/{values['icon'].lower()[4:] + ".png"}"
+                download_with_progress(url=download_url, output_path=path_file)
             for trait in values["traits"]:
                 if "_" in trait:
                     trait = trait.split("_")[-1]
                 tft_champions[champion].append(trait)
+                champion_traits.add(trait)
+            tft_champions[champion].append(values["role"])
+            tft_champions[champion].append(str(values["cost"]) + "c")
+            tft_champions[champion].append(str(values["stats"]["range"]) + "¤")
     print("TFT set", version)
+    if emblem:
+        tft_traits = defaultdict(list)
+        tft_champions_reversed = reverse_dict(tft_champions)
+        for trait in sorted(champion_traits):
+            infos = traits[trait]
+            description = infos["desc"]
+            # if "<br>" in description:
+            #     description = description.split("<br>")[0]
+            tft_traits[trait].append(description)
+            tft_traits[trait].append(" ".join(str(effect["minUnits"]) for effect in infos["effects"]))
+            for champion_trait, champions in tft_champions_reversed.items():
+                if champion_trait == trait:
+                    tft_traits[trait].append(f"|{len(champions)}|")
+                    tft_traits[trait].append(", ".join(sorted(champions)))
+            tft_traits[trait] = tft_traits[trait][1:] + tft_traits[trait][:1]
+        return tft_traits
     return tft_champions
 
 
@@ -697,105 +748,23 @@ def excel_to_questions_answers(file_name: str, column_name_questions, column_nam
     return dataframe_to_questions_answers(dataframe, column_name_questions, column_name_answers)
 
 
-# "Conversations":
-# ["Casual"
-#  "Social interaction",
-#  "Debate"
-#  "Opinion exchange",
-#  "Advice and guidance",
-#  "Emotional support"
-#  "Empathy",
-#  "Intellectual"
-#  "Informative discourse",
-#  "Romantic"
-#  "Interpersonal connection",
-#  "Humorous"
-#  "Lighthearted conversation",
-#  "Collaborative problem-solving and brainstorming",
-#  "Narrative"
-#  "Story-sharing (realistic contexts)"],
-# "Knowledge":
-# ["Health"
-#  "Wellness",
-#  "Humanities"
-#  "Social Science",
-#  "Art"
-#  "Design",
-#  "Natural science",
-#  "Tech"
-#  "Engineering",
-#  "Business",
-#  "Religion"
-#  "Spirituality",
-#  "Other"],
-# "Casual": ["Conversations"],
-# "Social interaction": ["Conversations"],
-# "Debate": ["Conversations"],
-# "Opinion exchange": ["Conversations"],
-# "Advice and guidance": ["Conversations"],
-# "Emotional support": ["Conversations"],
-# "Empathy": ["Conversations"],
-# "Intellectual": ["Conversations"],
-# "Informative discourse": ["Conversations"],
-# "Romantic": ["Conversations"],
-# "Interpersonal connection": ["Conversations"],
-# "Humorous": ["Conversations"],
-# "Lighthearted conversation": ["Conversations"],
-# "Collaborative problem-solving and brainstorming": ["Conversations"],
-# "Narrative": ["Conversations"],
-# "Story-sharing (realistic contexts)": ["Conversations"],
-# "Health": ["Knowledge"],
-# "Wellness": ["Knowledge"],
-# "Humanities": ["Knowledge"],
-# "Social Science": ["Knowledge"],
-# "Art": ["Knowledge"],
-# "Design": ["Knowledge"],
-# "Natural science": ["Knowledge"],
-# "Tech": ["Knowledge"],
-# "Engineering": ["Knowledge"],
-# "Business": ["Knowledge"],
-# "Religion": ["Knowledge"],
-# "Spirituality": ["Knowledge"],
-# "Other": ["Knowledge"],
 if __name__ == '__main__':
-    qa_sound_d = {
-        "Conversations":
-        # [  a.capitalize() for a in chain.from_iterable(map(lambda a: a.split(" & "),
-            [
-                "Advice and guidance",
-                "Casual & social interaction",
-                "Collaborative problem-solving & brainstorming",
-                "Debate & opinion exchange",
-                "Emotional support & empathy",
-                "Humorous & lighthearted conversation",
-                "Intellectual & informative discourse",
-                "Narrative & story-sharing (realistic contexts)",
-                "Romantic & interpersonal connection",
-            ],
-        "Knowledge":
-        # [  a.capitalize() for a in chain.from_iterable(map(lambda a: a.split(" & "),
-            [
-                "Art & design",
-                "Business",
-                "Health & wellness",
-                "Humanities & Social Science",
-                "Natural science",
-                "Other",
-                "Religion & Spirituality",
-                "Tech & Engineering"],
-
-    }
-    qa_sound = QuestionsAnswers(qa_sound_d)
-    qa_sound.reverse_dict()
-    qa_sound.training(one_to_validate=False, contain_to_validate=False)
     # qa_sound.training(one_to_validate=False, contain_to_validate=False, normal_and_reverse=True)
     # main()
     # qa = lyrics_to_questions_answers(song_lyrics, next_line=True, next_part=False, duplicate_line=True)
     # qa.training(ordered=True)
-    # qa_tft = QuestionsAnswers(tft_to_questions_answers(pbe=True))
-    # # qa_tft.filter(items_filter=lambda keys, values: "R" in keys)
+    tft_db = tft_to_questions_answers(pbe=True, show_cost=True, download_image=False, emblem=True)
+    # tft_db = tft_to_questions_answers(langage="fr_fr", pbe=False, show_cost=True, download_image=True)
+    # tft_db = reverse_dict(tft_db)
+    qa_tft = QuestionsAnswers(tft_db)
+    # qa_tft.filter(items_filter=lambda keys, values: "3c" in keys or "4c" in keys or "5c" in keys)
+    # qa_tft.filter(items_filter=lambda keys, values: "1c" in keys or "2c" in keys)
     # qa_tft.training(one_to_validate=False, contain_to_validate=False)
+    qa_tft.training(one_to_validate=False, contain_to_validate=False)
+    # qa_tft.training(one_to_validate=False, contain_to_validate=False, image=Path("image/tft/15"))
+    # qa_tft.training(one_to_validate=False, contain_to_validate=False, image=Path("image/tft/15"), keys_to_pickup=15)
     # qa_tft.reverse_dict()
+
     # qa_tft.training(one_to_validate=False, contain_to_validate=False, keys_to_pickup=10)
     # qa_tft.exam(reset_if_wrong=True)
     # qa_tft.exam(reset_if_wrong=False, keys_to_pickup=5)

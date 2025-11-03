@@ -713,8 +713,8 @@ def create_qrcode(data: str | object, dest="out", scale=5) -> bool:
         print(traceback.format_exc(), file=sys.stderr)
         printc("The data is too big to be stored through a QRCode", background_color="red")
         return False
-    qrcode.png("images/{}.png".format(dest), scale=scale)
-    qrcode.svg("images/{}.svg".format(dest), scale=scale)
+    qrcode.png("image/{}.png".format(dest), scale=scale)
+    qrcode.svg("image/{}.svg".format(dest), scale=scale)
     return True
 
 
@@ -836,11 +836,83 @@ def image_search(image: Union[np.array, Rectangle],
     return image_origin_on_screen + Point(uncrop_top_left) / (display_scaling / 100), templates[i][0]
 
 
+def find_duplicate_images(folder: str, reference_image: str, tolerance: float = 0.0) -> list[str]:
+    """
+    Find all images in a folder that are equal to the given reference image.
+
+    Args:
+        folder: Path to the folder to search in
+        reference_image: Path to the reference image file
+        tolerance: Tolerance percentage for pixel difference (0.0 to 1.0, e.g., 0.05 for 5% tolerance)
+
+    Returns:
+        List of file paths that are identical to the reference image
+    """
+    import os
+    from pathlib import Path
+
+    # Supported image extensions
+    image_extensions = {'.png', '.jpg', '.jpeg', '.bmp', '.gif', '.tiff', '.webp'}
+
+    # Read the reference image
+    ref_img = read(reference_image)
+    if ref_img is None:
+        print(f"Error: Could not read reference image: {reference_image}")
+        return []
+
+    duplicate_files = []
+    folder_path = Path(folder)
+
+    # Check if folder exists
+    if not folder_path.exists():
+        print(f"Error: Folder does not exist: {folder}")
+        return []
+
+    # Iterate through all files in the folder
+    for file_path in folder_path.iterdir():
+        # Skip if not a file or not an image
+        if not file_path.is_file():
+            continue
+
+        if file_path.suffix.lower() not in image_extensions:
+            continue
+
+        # Read the current image
+        current_img = read(str(file_path))
+
+        if current_img is None:
+            continue
+
+        # Check if images have the same shape
+        if ref_img.shape != current_img.shape:
+            continue
+
+        # Compare images with tolerance
+        if tolerance == 0.0:
+            # Exact match
+            if np.array_equal(ref_img, current_img):
+                duplicate_files.append(str(file_path))
+                print(f"Found duplicate: {file_path.name}")
+        else:
+            # Calculate difference with tolerance
+            # Convert to float to avoid overflow
+            diff = np.abs(ref_img.astype(float) - current_img.astype(float))
+            # Maximum allowed difference per pixel (255 * tolerance)
+            max_diff = 255 * tolerance
+            # Check if all pixel differences are within tolerance
+            if np.all(diff <= max_diff):
+                duplicate_files.append(str(file_path))
+                avg_diff = np.mean(diff)
+                print(f"Found duplicate: {file_path.name} (avg diff: {avg_diff:.2f})")
+
+    return duplicate_files
+
+
 def _test_funs():
     # create_qrcode({"ee": 56, (1, 2, 3): "486"})
-    # print(decode_qrcode("images/out.png"))
+    # print(decode_qrcode("image/out.png"))
 
-    image_files = ["images/words1.png"]
+    image_files = ["image/words1.png"]
     images = list(map(lambda x: read(x, to_rgb=True), image_files))
 
     image = images[0]
@@ -865,7 +937,7 @@ def _test_funs():
 
 if __name__ == '__main__':
     _test_funs()
-    # image_files = get_files_from_path(get_current_path() + "\\images\\", recursive=True)
+    # image_files = get_files_from_path(get_current_path() + "\\image\\", recursive=True)
     # display_images(image_files)
-    display_images(["images/out.png"])
+    display_images(["image/out.png"])
     exit()

@@ -8,13 +8,51 @@
 #     content = f.read()
 import os
 import shutil
+import psutil
 from pathlib import Path, WindowsPath
 from pickle import dump, load
 from typing import Callable, Optional
 
+def create_folder(folder):
+    """Create a folder and print a message if it was created."""
+    folder = Path(folder)  # Convertir en Path si c'est un str
+    if not folder.exists():
+        folder.mkdir(parents=True, exist_ok=True)
+        print(f"✓ Created folder: {folder}")
 
-# os.mkdir(directory)
-# list(map(lambda d: os.makedirs(d, exist_ok=True), dirs))
+
+def get_running_python_scripts() -> list[str]:
+    scripts = []
+
+    for proc in psutil.process_iter(['name', 'cmdline']):
+        try:
+            if proc.info['name'] and 'python' in proc.info['name'].lower():
+                cmdline = proc.info['cmdline']
+
+                if cmdline:
+                    # Chercher après --file (pour PyCharm/debuggers)
+                    if '--file' in cmdline:
+                        file_index = cmdline.index('--file')
+                        if file_index + 1 < len(cmdline):
+                            scripts.append(cmdline[file_index + 1])
+                            continue
+
+                    # Sinon chercher le premier .py qui n'est pas un helper
+                    for item in cmdline:
+                        if item and isinstance(item, str) and item.endswith('.py'):
+                            # Ignorer les helpers PyCharm/debuggers
+                            if 'pydev' not in item.lower() and 'helper' not in item.lower():
+                                scripts.append(item)
+                                break
+        except (psutil.NoSuchProcess, psutil.AccessDenied, Exception):
+            continue
+
+    return scripts
+
+
+def create_directory(relative_path: str) -> None:
+    target_dir = Path(relative_path)
+    target_dir.mkdir(parents=True, exist_ok=True)
 
 
 def save_obj_to_file(obj, file_name: Path):
@@ -35,6 +73,37 @@ def is_file_exists(path) -> bool:
     """ Due to concurrency, after an is_existing call, it may be possible that the file doesn't exist,
     in this case, use a try-catch exception when the file is used """
     return os.path.exists(path)
+
+
+def is_pattern_file_exists(folder: str, pattern: str) -> bool:
+    """
+    Check if a file matching the regex pattern exists in the given folder.
+
+    Args:
+        folder: Path to the folder to search in
+        pattern: Regex pattern to match filenames against
+
+    Returns:
+        True if at least one file matches the pattern, False otherwise
+    """
+    import re
+    from pathlib import Path
+
+    folder_path = Path(folder)
+
+    # Check if folder exists
+    if not folder_path.exists() or not folder_path.is_dir():
+        return False
+
+    # Compile the regex pattern
+    regex = re.compile(pattern)
+
+    # Check each file in the folder
+    for file_path in folder_path.iterdir():
+        if file_path.is_file() and regex.search(file_path.name):
+            return True
+
+    return False
 
 
 def is_dir(path: str) -> bool:
@@ -87,12 +156,14 @@ def get_last_part(file_name):
 def get_ext(file_name):
     return file_name[file_name.rfind(".") + 1:]
 
+
 def get_file(file_name: str, encoding="utf-8") -> Optional[str]:
     try:
         with open(file_name, 'r', encoding=encoding) as file:
             return file.read()
     except FileNotFoundError:
         return None
+
 
 def get_lines(file_name: str, encoding="utf-8") -> Optional[list[str]]:
     lines = get_file(file_name, encoding)
@@ -103,7 +174,6 @@ def get_lines(file_name: str, encoding="utf-8") -> Optional[list[str]]:
     #         return file.readlines()
     # except FileNotFoundError:
     #     return None
-
 
 
 def count_lines(file_name: str) -> int:
@@ -177,6 +247,45 @@ def output(*args, log_file=None, end="\n"):
 
 def is_ascii(text):
     return all(ord(char) < 128 for char in text)
+
+
+def equivalent_text(text1: str, text2: str) -> bool:
+    """
+    Check if two texts are equivalent by normalizing them.
+
+    Normalization rules:
+    - Convert to lowercase
+    - Replace spaces with hyphens
+    - Remove special characters
+
+    Examples:
+        equivalent_text("White Flare", "white-flare") -> True
+        equivalent_text("EX Delta Species", "ex-delta-species") -> True
+        equivalent_text("Sun & Moon", "sun-moon") -> True
+
+    Args:
+        text1: First text to compare
+        text2: Second text to compare
+
+    Returns:
+        True if texts are equivalent, False otherwise
+    """
+    import re
+
+    def normalize(text):
+        # Convert to lowercase
+        text = text.lower()
+        # Replace spaces with hyphens
+        text = text.replace(" ", "-")
+        # Remove special characters (keep only alphanumeric and hyphens)
+        text = re.sub(r'[^a-z0-9\-]', '', text)
+        # Remove multiple consecutive hyphens
+        text = re.sub(r'-+', '-', text)
+        # Remove leading/trailing hyphens
+        text = text.strip('-')
+        return text
+
+    return normalize(text1) == normalize(text2)
 
 
 def run_file(file):

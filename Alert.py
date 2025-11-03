@@ -307,13 +307,13 @@ def ping_is_alive(name):
 
 
 if __name__ == '__main__':
-    while True:
-        Telegrams.message("notification")
-        sleep(15)
+    # while True:
+    #     Telegrams.message("notification")
+    #     sleep(15)
     # if len(sys.argv) <= 1:
     #     # print("b", sys.argv)
     #     alert("speech")
-    #     # say("speech")
+    say("test")
     # run(ping_test)
     # run(ping_listener)
     # speech None en 1 False 1 False True False True

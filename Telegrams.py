@@ -2,12 +2,15 @@ import asyncio
 import os
 import threading
 import time
+from datetime import datetime, timedelta
 
 from dotenv import load_dotenv
 from telegram import Bot
 
-from Threads import run
-from Times import now
+def now(utc=False, offset_h=0, offset_m=0, offset_s=0, with_ms=True) -> datetime:
+    offset = timedelta(hours=offset_h, minutes=offset_m, seconds=offset_s)
+    datetime_now = offset + (datetime.utcnow() if utc else datetime.now())
+    return datetime_now if with_ms else datetime_now.replace(microsecond=0)
 
 USER_IDS = {"ale": 1522961892}
 load_dotenv()
@@ -74,15 +77,20 @@ def message(msg: str, to: str = None):
         raise RuntimeError("Failed to create event loop")
     asyncio.run_coroutine_threadsafe(message_async(msg, to), loop)
 
+
 def message_block(msg: str, to: str = None):
     message(msg, to)
     threading.Event().wait()
+
 
 def aux():
     message("message aaa")
 
 
 if __name__ == "__main__":
-    aux()
-    # run(aux)
-    threading.Event().wait()
+    while True:
+        message("notification")
+        time.sleep(15)
+    # aux()
+    # # run(aux)
+    # threading.Event().wait()

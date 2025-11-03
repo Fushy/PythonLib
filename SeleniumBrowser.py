@@ -25,10 +25,15 @@ def wait_for_element(timeout=5):
     def decorator(func):
         @wraps(func)
         def wrapper(self, *args, **kwargs):
+            # Extraire le timeout des kwargs si présent, sinon utiliser la valeur par défaut
+            wait_timeout = kwargs.pop('timeout', timeout)
             try:
-                return WebDriverWait(self.get_working_page(), timeout).until(lambda driver: func(self, *args, **kwargs))
+                return WebDriverWait(self.get_working_page(), wait_timeout).until(
+                    lambda driver: func(self, *args, **kwargs)
+                )
             except TimeoutException:
-                self.print(f"Timeout waiting {timeout}s for element in {func.__name__}")
+                self.print(f"Timeout waiting {wait_timeout}s for element in {func.__name__}")
+                return None
 
         return wrapper
 
@@ -130,10 +135,20 @@ class SeleniumBrowser:
             self.load(url)
         self.print(f"New page opened, total tabs: {len(self.driver.window_handles)}")
 
+    def goto(self, window_num) -> bool:
+        if window_num >= len(self.driver.window_handles):
+            return False
+        self.driver.switch_to.window(self.driver.window_handles[window_num])
+        return True
+
     def close_page(self):
         self.driver.close()
         self.driver.switch_to.window(self.driver.window_handles[-1])
         self.print(f"Page closed, total tabs: {len(self.driver.window_handles)}")
+
+    def get_pages_amount(self):
+        """Get the number of pages."""
+        return len(self.driver.window_handles)
 
     def get_working_page(self):
         """Get the current WebDriver instance."""
@@ -183,6 +198,7 @@ class SeleniumBrowser:
             self.print("r", refresh, (now() - start_refresh).total_seconds(), "l", leave, (now() - start_leave).total_seconds())
             if leave is not None and (now() - start_leave).total_seconds() >= leave:
                 return False
+        return None
 
     @wait_for_element(timeout=0.1)
     def get_element(self, selector: str, element=None) -> WebElement:
@@ -196,13 +212,13 @@ class SeleniumBrowser:
         self.print(f"Searching for element by ID: {selector}")
         return self.get_element(selector, element)
 
-    def get_element_class(self, class_name: str, element=None) -> WebElement:
+    def get_element_class(self, class_name: str, element=None, timeout: float = 0.1) -> WebElement:
         """Get the first element by class name (supports multiple classes)."""
 
         self.driver.switch_to.window(self.driver.window_handles[-1])
         selector = "".join(f".{cls}" for cls in class_name.split())
         self.print(f"Searching for element by class: {selector}")
-        return self.get_element(selector, element)
+        return self.get_element(selector, element, timeout=timeout)
 
     def get_element_test_id(self, test_id: str, element=None) -> WebElement:
         """Get the first element by data-testid."""
@@ -275,7 +291,7 @@ class SeleniumBrowser:
                      role: Optional[str] = None, label: Optional[str] = None, placeholder: Optional[str] = None,
                      alt_text: Optional[str] = None, title: Optional[str] = None, test_id: Optional[str] = None,
                      class_name: Optional[str] = None, style: Optional[str] = None, exact: bool = False,
-                     wait_results: bool = False, timeout: int = 30, **role_attributes) -> List[WebElement]:
+                     wait_results: bool = False, wait_text: int = 0, timeout: int = 30, **role_attributes) -> List[WebElement]:
         """Get all elements matching ALL provided criteria (AND condition).
 
         Args:
@@ -336,14 +352,29 @@ class SeleniumBrowser:
 
         # Fetch elements
         elements = []
-        if wait_results:
-            try:
-                elements = WebDriverWait(base, timeout).until(
-                    EC.presence_of_all_elements_located((by, selector))
-                )
-            except TimeoutException:
-                if self.debug:
-                    self.print(f"Timeout waiting {timeout}s for {by}: {selector}")
+        if wait_results or wait_text:
+            if wait_results:
+                try:
+                    elements = WebDriverWait(base, timeout).until(
+                        EC.presence_of_all_elements_located((by, selector))
+                    )
+                except TimeoutException:
+                    if self.debug:
+                        self.print(f"Timeout waiting {timeout}s for {by}: {selector}")
+            if wait_text:
+                try:
+                    def check_text_in_elements(driver):
+                        found_elements = base.find_elements(by, selector)
+                        for element in found_elements:
+                            if len(element.text) >= wait_text:
+                                # print(element.text)
+                                return found_elements
+                        return False
+
+                    elements = WebDriverWait(base, timeout).until(check_text_in_elements)
+                except TimeoutException:
+                    if self.debug:
+                        self.print(f"Timeout waiting {timeout}s for at least {wait_text} elements with {by}: {selector}")
         else:
             try:
                 elements = base.find_elements(by, selector)
