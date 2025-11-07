@@ -79,10 +79,6 @@ from django.db import IntegrityError
 #         return f"{self.title} - {self.artist}"
 
 
-def r(text):
-    return text.replace(" ", "_")
-
-
 def get_or_none(model_class, **kwargs) -> Optional:
     try:
         return model_class.objects.get(**kwargs)

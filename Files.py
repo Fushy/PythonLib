@@ -89,6 +89,7 @@ def is_pattern_file_exists(folder: str, pattern: str) -> bool:
     import re
     from pathlib import Path
 
+    # pattern = re.escape(pattern)
     folder_path = Path(folder)
 
     # Check if folder exists
@@ -104,7 +105,9 @@ def is_pattern_file_exists(folder: str, pattern: str) -> bool:
             return True
 
     return False
-
+# text = "?Lightning Energy (SM Trainer Kit (Alolan Raichu) 2/30)"
+# pattern = "^" + re.escape("?Lightning Energy (")
+# print(re.search(pattern, text))
 
 def is_dir(path: str) -> bool:
     return os.path.isdir(path)
