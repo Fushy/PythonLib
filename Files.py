@@ -8,6 +8,8 @@
 #     content = f.read()
 import os
 import shutil
+from datetime import datetime
+
 import psutil
 from pathlib import Path, WindowsPath
 from pickle import dump, load
@@ -55,8 +57,10 @@ def create_directory(relative_path: str) -> None:
     target_dir.mkdir(parents=True, exist_ok=True)
 
 
-def save_obj_to_file(obj, file_name: Path):
-    assert file_name.suffix == ".plk" and type(file_name) is WindowsPath
+def save_obj_to_file(obj, file_name):
+    if type(file_name) is not WindowsPath:
+        file_name = Path(str(file_name))
+    assert file_name.suffix == ".pkl"
     path_name = file_name.parent
     if not is_file_exists(path_name):
         os.makedirs(path_name, exist_ok=True)
@@ -65,7 +69,8 @@ def save_obj_to_file(obj, file_name: Path):
 
 
 def get_obj_from_file(file_name):
-    with open(file_name + ".plk", 'rb') as file:
+    assert Path(file_name).suffix == ".pkl"
+    with open(file_name, 'rb') as file:
         return load(file)
 
 
@@ -101,7 +106,7 @@ def is_pattern_file_exists(folder: str, pattern: str) -> bool:
 
     # Check each file in the folder
     for file_path in folder_path.iterdir():
-        if file_path.is_file() and regex.search(file_path.name):
+        if file_path.is_file() and regex.match(file_path.name):
             return True
 
     return False

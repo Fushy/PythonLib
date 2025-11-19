@@ -19,6 +19,20 @@ from Times import elapsed_seconds, now
 from Util import getenv
 
 
+def get_all_attributes(element):
+    driver = element._parent
+    attributes = driver.execute_script(
+        """
+        var items = {};
+        for (index = 0; index < arguments[0].attributes.length; ++index) {
+            items[arguments[0].attributes[index].name] = arguments[0].attributes[index].value;
+        }
+        return items;
+        """,
+        element
+    )
+    return attributes
+
 def wait_for_element(timeout=5):
     """Decorator to wait for an element to be present."""
 
